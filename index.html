@@ -9,14 +9,11 @@
 </head>
 <body>
 
-    <!-- HEADER FIJO CON BLUR -->
-    <header class="app-header" id="app-header">
-        <span class="app-header-title" id="header-title">CRM Addlife</span>
-
-        <!-- Toggle iOS manual -->
-        <div class="ios-toggle-wrap" title="Modo oscuro">
+    <header class="app-header">
+        <span class="app-header-title">CRM Addlife</span>
+        <div class="ios-toggle-wrap">
             <span class="toggle-icon">☀️</span>
-            <label class="ios-toggle" aria-label="Activar modo oscuro">
+            <label class="ios-toggle">
                 <input type="checkbox" id="theme-toggle">
                 <div class="ios-toggle-track"></div>
                 <div class="ios-toggle-thumb"></div>
@@ -25,56 +22,15 @@
         </div>
     </header>
 
-    <!-- CONTENIDO PRINCIPAL -->
     <div id="app-content"></div>
 
-    <!-- BARRA DE NAVEGACIÓN FLOTANTE CON BLUR -->
-    <nav id="main-sidebar" class="bottom-nav">
-        <button class="nav-btn active" data-target="dashboard">
-            <span class="icon">🏠</span>
-            <span class="label">Inicio</span>
-        </button>
-        <button class="nav-btn" data-target="prospeccion">
-            <span class="icon">🎯</span>
-            <span class="label">Prospectos</span>
-        </button>
-        <button class="nav-btn" data-target="referidos">
-            <span class="icon">🤝</span>
-            <span class="label">Referidos</span>
-        </button>
-        <button class="nav-btn" data-target="actividad">
-            <span class="icon">📈</span>
-            <span class="label">Actividad</span>
-        </button>
-        <button class="nav-btn" data-target="cartera">
-            <span class="icon">💼</span>
-            <span class="label">Cartera</span>
-        </button>
+    <nav id="main-sidebar" class="bottom-nav" style="display: none;">
+        <button class="nav-btn active" data-target="dashboard"><span class="icon">🏠</span><span class="label">Inicio</span></button>
+        <button class="nav-btn" data-target="prospeccion"><span class="icon">🎯</span><span class="label">Prospectos</span></button>
+        <button class="nav-btn" data-target="actividad"><span class="icon">📈</span><span class="label">Actividad</span></button>
+        <button class="nav-btn nav-btn-logout" onclick="cerrarSesion()"><span class="icon">🚪</span><span class="label">Salir</span></button>
     </nav>
 
     <script type="module" src="app.js"></script>
-
-    <!-- Toggle handler — se ejecuta antes de app.js para evitar flash -->
-    <script>
-        (function() {
-            const saved = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const isDark = saved === 'dark' || (!saved && prefersDark);
-            if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
-
-            // Sincronizar checkbox cuando el DOM cargue
-            document.addEventListener('DOMContentLoaded', function() {
-                const toggle = document.getElementById('theme-toggle');
-                if (!toggle) return;
-                toggle.checked = (document.documentElement.getAttribute('data-theme') === 'dark');
-
-                toggle.addEventListener('change', function() {
-                    const next = this.checked ? 'dark' : 'light';
-                    document.documentElement.setAttribute('data-theme', next);
-                    localStorage.setItem('theme', next);
-                });
-            });
-        })();
-    </script>
 </body>
 </html>
