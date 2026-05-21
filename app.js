@@ -31,10 +31,8 @@ async function loginConGoogle() {
         return;
     }
     try {
-        // CORRECCIÓN TOTAL: Dirección de producción explícita por defecto
         let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
         
-        // Validación estricta sin fallas lógicas de operadores
         const hostActual = window.location.hostname;
         if (hostActual === 'localhost' || hostActual === '127.0.0.1') {
             urlRedireccion = window.location.origin + window.location.pathname;
@@ -60,7 +58,6 @@ async function cerrarSesion() {
     window.location.reload();
 }
 
-// Vinculación explícita al entorno global
 window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
@@ -154,11 +151,20 @@ window.navigateTo = function(moduleName) {
 // 6. ARRANQUE Y ASIGNACIÓN DE EVENTOS NATIVOS
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
+    // Escuchador global de clics (Menú lateral y Botón de Login juntos)
     document.body.addEventListener('click', (e) => {
+        // Manejo del menú lateral
         const navBtn = e.target.closest('.nav-btn');
         if (navBtn) {
             const target = navBtn.getAttribute('data-target');
             if (target) window.navigateTo(target);
+            return;
+        }
+
+        // Manejo del botón de Login (Delegación total blindada)
+        const loginBtn = e.target.closest('#btn-google-login');
+        if (loginBtn) {
+            loginConGoogle();
         }
     });
 
@@ -184,11 +190,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const contentArea = document.getElementById('app-content');
         if (contentArea) {
             contentArea.innerHTML = renderLoginScreen();
-            
-            const loginBtn = document.getElementById('btn-google-login');
-            if (loginBtn) {
-                loginBtn.addEventListener('click', loginConGoogle);
-            }
         }
     } else {
         if (navBar) navBar.style.display = 'flex';
