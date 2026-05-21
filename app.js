@@ -16,14 +16,13 @@ let supabase = null;
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        console.log('Supabase inicializado correctamente.');
         return true;
     }
     return false;
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN DINÁMICA DE ENTORNO
+// 2. AUTENTICACIÓN DINÁMICA
 // ==========================================
 async function loginConGoogle() {
     if (!supabase) {
@@ -31,19 +30,12 @@ async function loginConGoogle() {
         return;
     }
     try {
-        let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
-        
-        const hostActual = window.location.hostname;
-        if (hostActual === 'localhost' || hostActual === '127.0.0.1') {
-            urlRedireccion = window.location.origin + window.location.pathname;
-        }
-
-        console.log("Despachando autenticación segura hacia:", urlRedireccion);
-
+        // Con el comodín (*) configurado en Supabase, 
+        // pasamos la URL actual y será aceptada automáticamente.
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: { 
-                redirectTo: urlRedireccion 
+                redirectTo: window.location.origin + window.location.pathname
             }
         });
         if (error) throw error;
@@ -58,12 +50,12 @@ async function cerrarSesion() {
     window.location.reload();
 }
 
-// Exposición global para romper acoplamientos circulares de módulos
+// Exposición global para los botones
 window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
 // ==========================================
-// 3. GEMINI IA — MÓDULO DE INTEGRACIÓN
+// 3. GEMINI IA
 // ==========================================
 const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
 
@@ -73,39 +65,35 @@ export async function callGemini(promptText, outputElementId) {
 
     try {
         const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
             }
         );
-
         const data = await res.json();
-
         if (data.candidates && data.candidates.length > 0) {
             if (output) output.innerText = data.candidates[0].content.parts[0].text;
         } else {
-            if (output) output.innerText = 'Error API: ' + (data.error ? data.error.message : 'Respuesta vacía');
+            if (output) output.innerText = 'Error API';
         }
     } catch (err) {
-        if (output) output.innerText = 'Error de conexión: ' + err.message;
+        if (output) output.innerText = 'Error de conexión';
     }
 }
-
 window.callGemini = callGemini;
 
 // ==========================================
-// 4. INTERFAZ VISUAL DE ACCESO
+// 4. LOGIN SCREEN
 // ==========================================
 function renderLoginScreen() {
     return `
         <div class="login-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center;">
-            <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37);">
-                <h1 style="margin-bottom: 0.5rem; font-size: 2rem; letter-spacing: -0.5px; color: #fff;">CRM Addlife</h1>
-                <p style="color: #aaa; margin-bottom: 2rem; font-size: 0.95rem;">Ecosistema Privado de Asesoría de Alto Valor</p>
-                <button id="btn-google-login" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; color: #111; font-weight: 600; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                    <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google">
+            <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%;">
+                <h1>CRM Addlife</h1>
+                <p>Ecosistema Privado de Asesoría</p>
+                <button id="btn-google-login" style="width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; cursor: pointer;">
                     Continuar con Google
                 </button>
             </div>
@@ -114,7 +102,7 @@ function renderLoginScreen() {
 }
 
 // ==========================================
-// 5. CONTROLADOR DE NAVEGACIÓN GLOBAL
+// 5. NAVEGACIÓN GLOBAL
 // ==========================================
 window.navigateTo = function(moduleName) {
     const contentArea = document.getElementById('app-content');
@@ -125,62 +113,29 @@ window.navigateTo = function(moduleName) {
     if (activeBtn) activeBtn.classList.add('active');
 
     contentArea.innerHTML = '';
-
     try {
-        if (moduleName === 'dashboard' && typeof renderDashboard === 'function') {
-            contentArea.innerHTML = renderDashboard();
-            setTimeout(() => bindDashboardEvents(), 50);
-        } else if (moduleName === 'prospeccion' && typeof renderProspeccion === 'function') {
-            contentArea.innerHTML = renderProspeccion();
-            setTimeout(() => bindProspeccionEvents(), 50);
-        } else if (moduleName === 'referidos' && typeof renderReferidos === 'function') {
-            contentArea.innerHTML = renderReferidos();
-            setTimeout(() => bindReferidosEvents(), 50);
-        } else if (moduleName === 'actividad' && typeof renderActividad === 'function') {
-            contentArea.innerHTML = renderActividad();
-            setTimeout(() => bindActividadEvents(), 50);
-        } else if (moduleName === 'cartera' && typeof renderCartera === 'function') {
-            contentArea.innerHTML = renderCartera();
-            setTimeout(() => bindCarteraEvents(), 50);
-        } else {
-            contentArea.innerHTML = `<div class="card"><h2>${moduleName.toUpperCase()}</h2><p>Módulo en construcción.</p></div>`;
-        }
-    } catch (error) {
-        contentArea.innerHTML = `<div class="card" style="color:red;"><h2>Error</h2><p>${error.message}</p></div>`;
-    }
+        if (moduleName === 'dashboard') { contentArea.innerHTML = renderDashboard(); setTimeout(bindDashboardEvents, 50); }
+        else if (moduleName === 'prospeccion') { contentArea.innerHTML = renderProspeccion(); setTimeout(bindProspeccionEvents, 50); }
+        else if (moduleName === 'referidos') { contentArea.innerHTML = renderReferidos(); setTimeout(bindReferidosEvents, 50); }
+        else if (moduleName === 'actividad') { contentArea.innerHTML = renderActividad(); setTimeout(bindActividadEvents, 50); }
+        else if (moduleName === 'cartera') { contentArea.innerHTML = renderCartera(); setTimeout(bindCarteraEvents, 50); }
+    } catch (e) { console.error(e); }
 };
 
 // ==========================================
-// 6. CICLO DE VIDA Y ASIGNACIÓN DE EVENTOS
+// 6. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Delegación estructural de eventos del ratón
     document.body.addEventListener('click', (e) => {
         const navBtn = e.target.closest('.nav-btn');
-        if (navBtn) {
-            const target = navBtn.getAttribute('data-target');
-            if (target) window.navigateTo(target);
-            return;
-        }
-
-        const loginBtn = e.target.closest('#btn-google-login');
-        if (loginBtn) {
-            window.loginConGoogle();
-        }
+        if (navBtn) window.navigateTo(navBtn.getAttribute('data-target'));
+        if (e.target.closest('#btn-google-login')) window.loginConGoogle();
     });
 
     let intentos = 0;
     while (!inicializarSupabase() && intentos < 10) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(r => setTimeout(r, 100));
         intentos++;
-    }
-
-    if (!supabase) {
-        const contentArea = document.getElementById('app-content');
-        if (contentArea) {
-            contentArea.innerHTML = `<div class="card" style="color:red;"><h2>Error de Conexión</h2><p>El servicio de base de datos tardó demasiado. Revisa tu conexión a internet.</p></div>`;
-        }
-        return;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -188,10 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!user) {
         if (navBar) navBar.style.display = 'none';
-        const contentArea = document.getElementById('app-content');
-        if (contentArea) {
-            contentArea.innerHTML = renderLoginScreen();
-        }
+        document.getElementById('app-content').innerHTML = renderLoginScreen();
     } else {
         if (navBar) navBar.style.display = 'flex';
         window.navigateTo('dashboard');
