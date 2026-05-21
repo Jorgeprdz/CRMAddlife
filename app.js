@@ -46,14 +46,13 @@ window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
 // ==========================================
-// 3. GEMINI IA — VÍA EDGE FUNCTION (SEGURO)
+// 3. GEMINI IA — VÍA EDGE FUNCTION CON DIAGNÓSTICO
 // ==========================================
 export async function callGemini(promptText, outputElementId) {
     const output = document.getElementById(outputElementId);
     if (output) output.innerText = 'Procesando con IA...';
 
     try {
-        // Tu URL de Edge Function protegida
         const functionUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co/functions/v1/gemini-proxy';
 
         const res = await fetch(functionUrl, {
@@ -64,10 +63,16 @@ export async function callGemini(promptText, outputElementId) {
 
         const data = await res.json();
 
+        // Trampa de diagnóstico para imprimir el error exacto en pantalla
+        if (data.error) {
+            if (output) output.innerText = 'Error de Google: ' + JSON.stringify(data.error);
+            return;
+        }
+
         if (data.candidates && data.candidates.length > 0) {
             if (output) output.innerText = data.candidates[0].content.parts[0].text;
         } else {
-            if (output) output.innerText = 'Error API: ' + (data.error?.message || 'Respuesta vacía');
+            if (output) output.innerText = 'Respuesta inesperada: ' + JSON.stringify(data);
         }
     } catch (err) {
         if (output) output.innerText = 'Error de conexión: ' + err.message;
