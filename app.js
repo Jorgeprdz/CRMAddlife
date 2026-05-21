@@ -23,7 +23,7 @@ function inicializarSupabase() {
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN DINÁMICA
+// 2. AUTENTICACIÓN BLINDADA (EVITA LOCALHOST)
 // ==========================================
 async function loginConGoogle() {
     if (!supabase) {
@@ -31,14 +31,20 @@ async function loginConGoogle() {
         return;
     }
     try {
-        // Detecta automáticamente si estás en local o en producción en tiempo real
-        const URL_REDIRECCION = window.location.origin + window.location.pathname;
-        console.log("Redirigiendo tras login a:", URL_REDIRECCION);
+        // Validación absoluta del entorno real
+        let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
+        
+        // Si estás explícitamente en tu servidor local de desarrollo, usa el origen local
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            urlRedireccion = window.location.origin + window.location.pathname;
+        }
+
+        console.log("Despachando autenticación segura hacia:", urlRedireccion);
 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: { 
-                redirectTo: URL_REDIRECCION 
+                redirectTo: urlRedireccion 
             }
         });
         if (error) throw error;
@@ -174,7 +180,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (contentArea) {
             contentArea.innerHTML = renderLoginScreen();
             
-            // Asignación limpia del evento al botón inyectado
             const loginBtn = document.getElementById('btn-google-login');
             if (loginBtn) loginBtn.addEventListener('click', loginConGoogle);
         }
