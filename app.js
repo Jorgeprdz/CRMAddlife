@@ -22,7 +22,7 @@ function inicializarSupabase() {
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN SEGURA
+// 2. AUTENTICACIÓN Y TEMAS
 // ==========================================
 async function loginConGoogle() {
     if (!supabase) return;
@@ -45,8 +45,28 @@ async function cerrarSesion() {
 window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
+// Lógica de Modo Oscuro Automático/Manual
+function aplicarModo() {
+    const hora = new Date().getHours();
+    const esNoche = hora >= 19 || hora < 7;
+    const modoGuardado = localStorage.getItem('theme');
+    
+    if (modoGuardado === 'dark' || (!modoGuardado && esNoche)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+    }
+}
+
+window.toggleTheme = () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+};
+
 // ==========================================
-// 3. GEMINI IA — VÍA EDGE FUNCTION CON DIAGNÓSTICO
+// 3. GEMINI IA — VÍA EDGE FUNCTION
 // ==========================================
 export async function callGemini(promptText, outputElementId) {
     const output = document.getElementById(outputElementId);
@@ -59,7 +79,6 @@ export async function callGemini(promptText, outputElementId) {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                // Este es el "gafete" que Supabase estaba pidiendo:
                 'Authorization': `Bearer ${supabaseAnonKey}` 
             },
             body: JSON.stringify({ prompt: promptText })
@@ -81,7 +100,7 @@ export async function callGemini(promptText, outputElementId) {
         if (output) output.innerText = 'Error de conexión: ' + err.message;
     }
 }
-
+window.callGemini = callGemini;
 
 // ==========================================
 // 4. INTERFAZ Y NAVEGACIÓN
@@ -89,12 +108,10 @@ export async function callGemini(promptText, outputElementId) {
 function renderLoginScreen() {
     return `
         <div class="login-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center;">
-            <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%;">
+            <div class="card" style="max-width: 400px; width: 90%;">
                 <h1>CRM Addlife</h1>
                 <p>Ecosistema Privado</p>
-                <button id="btn-google-login" style="width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; cursor: pointer;">
-                    Continuar con Google
-                </button>
+                <button class="btn-primary" id="btn-google-login">Continuar con Google</button>
             </div>
         </div>
     `;
@@ -122,6 +139,8 @@ window.navigateTo = function(moduleName) {
 // 5. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
+    aplicarModo(); // Iniciar tema
+
     document.body.addEventListener('click', (e) => {
         const navBtn = e.target.closest('.nav-btn');
         if (navBtn) window.navigateTo(navBtn.getAttribute('data-target'));
@@ -144,26 +163,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (navBar) navBar.style.display = 'flex';
         window.navigateTo('dashboard');
     }
-    function aplicarModo() {
-    const hora = new Date().getHours();
-    const esNoche = hora >= 19 || hora < 7; // Oscuro de 7pm a 7am
-    const modoGuardado = localStorage.getItem('theme');
-    
-    if (modoGuardado === 'dark' || (!modoGuardado && esNoche)) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-    }
-}
-
-window.toggleTheme = () => {
-    const current = document.documentElement.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-};
-
-// Llamar al arrancar
-aplicarModo();
-
 });
