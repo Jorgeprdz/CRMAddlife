@@ -23,18 +23,18 @@ function inicializarSupabase() {
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN BLINDADA (EVITA LOCALHOST)
+// 2. AUTENTICACIÓN DINÁMICA DE ENTORNO
 // ==========================================
-async function loginConGoogle() {
+window.loginConGoogle = async function() {
     if (!supabase) {
         alert('Error: El cliente de base de datos no está listo.');
         return;
     }
     try {
-        // Validación absoluta del entorno real
+        // Dirección de producción por defecto
         let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
         
-        // Si estás explícitamente en tu servidor local de desarrollo, usa el origen local
+        // Si el navegador detecta que ejecutas el servidor local en Acode
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             urlRedireccion = window.location.origin + window.location.pathname;
         }
@@ -54,7 +54,7 @@ async function loginConGoogle() {
     }
 }
 
-async function cerrarSesion() {
+window.cerrarSesion = async function() {
     if (supabase) await supabase.auth.signOut();
     window.location.reload();
 }
@@ -181,7 +181,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             contentArea.innerHTML = renderLoginScreen();
             
             const loginBtn = document.getElementById('btn-google-login');
-            if (loginBtn) loginBtn.addEventListener('click', loginConGoogle);
+            if (loginBtn) {
+                loginBtn.addEventListener('click', window.loginConGoogle);
+            }
         }
     } else {
         if (navBar) navBar.style.display = 'flex';
