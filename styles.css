@@ -1,78 +1,51 @@
 :root {
+    /* Modo Claro */
     --bg-light: #f2f2f7;
+    --card-bg: rgba(255, 255, 255, 0.7);
+    --text-main: #1c1c1e;
     --accent: #007AFF;
-    --card-glass: rgba(255, 255, 255, 0.7);
+    --input-bg: #ffffff;
+}
+
+[data-theme='dark'] {
+    /* Modo Oscuro (Gris oscuro, no negro) */
+    --bg-light: #121212; /* Gris muy oscuro */
+    --card-bg: rgba(45, 45, 45, 0.6);
+    --text-main: #e0e0e0;
+    --input-bg: #2a2a2a;
 }
 
 body {
     background-color: var(--bg-light) !important;
-    color: #1c1c1e !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    margin: 0;
-    padding-bottom: 140px; /* Espacio extra para el menú flotante */
+    color: var(--text-main) !important;
+    transition: background 0.3s ease;
+    padding-bottom: 140px;
 }
 
-/* Tarjetas One UI 8.5 */
-.card {
-    background: var(--card-glass) !important;
-    backdrop-filter: blur(40px) !important;
-    -webkit-backdrop-filter: blur(40px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
-    border-radius: 32px !important; /* Esquinas tipo One UI */
-    padding: 24px;
-    margin: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
-}
-
-/* Inputs y Textareas */
-input, select, textarea {
-    width: 100%;
-    padding: 18px !important;
-    margin-bottom: 16px !important;
+/* Estandarización de Elementos */
+button, input, select, textarea {
+    font-family: inherit;
     border-radius: 20px !important;
-    border: 1px solid rgba(0,0,0,0.05) !important;
-    background: #ffffff !important;
-    font-size: 16px !important;
+    padding: 16px !important;
+    border: 1px solid rgba(0,0,0,0.1) !important;
     outline: none !important;
 }
 
-/* Menú Flotante Estilo Píldora */
+button { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; }
+input, select, textarea { background: var(--input-bg) !important; color: var(--text-main) !important; }
+
+.card {
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(40px);
+    border-radius: 32px;
+    padding: 24px;
+    margin: 20px;
+}
+
+/* Menú Flotante */
 .bottom-nav {
-    display: flex !important;
-    position: fixed !important;
-    bottom: 25px !important;
-    left: 20px !important;
-    right: 20px !important;
-    background: rgba(255, 255, 255, 0.8) !important;
-    backdrop-filter: blur(50px) !important; /* Blur potente */
-    -webkit-backdrop-filter: blur(50px) !important;
-    border-radius: 50px !important; /* Píldora perfecta */
-    border: 1px solid rgba(255, 255, 255, 0.8) !important;
-    padding: 15px 10px !important;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
-    z-index: 1000 !important;
+    display: flex; position: fixed; bottom: 25px; left: 20px; right: 20px;
+    background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(50px);
+    border-radius: 50px; padding: 15px; z-index: 1000;
 }
-
-.nav-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: none !important;
-    border: none !important;
-    color: #8e8e93 !important;
-    font-size: 11px;
-}
-
-.nav-btn .icon { font-size: 24px; margin-bottom: 4px; }
-.nav-btn.active { color: var(--accent) !important; font-weight: 600; }
-
-/* Botones */
-.btn-primary {
-    background: var(--accent) !important;
-    color: white !important;
-    border-radius: 20px !important;
-    padding: 18px !important;
-    border: none !important;
-    font-weight: 600 !important;
-}
+[data-theme='dark'] .bottom-nav { background: rgba(30, 30, 30, 0.8); }

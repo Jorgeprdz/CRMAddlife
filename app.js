@@ -144,4 +144,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (navBar) navBar.style.display = 'flex';
         window.navigateTo('dashboard');
     }
+    function aplicarModo() {
+    const hora = new Date().getHours();
+    const esNoche = hora >= 19 || hora < 7; // Oscuro de 7pm a 7am
+    const modoGuardado = localStorage.getItem('theme');
+    
+    if (modoGuardado === 'dark' || (!modoGuardado && esNoche)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+    }
+}
+
+window.toggleTheme = () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+};
+
+// Llamar al arrancar
+aplicarModo();
+
 });
