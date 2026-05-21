@@ -1,34 +1,59 @@
-import { renderDashboard, bindDashboardEvents } from './dashboard.js';
-import { renderProspeccion, bindProspeccionEvents } from './prospeccion.js';
-import { renderReferidos, bindReferidosEvents } from './referidos.js';
-import { renderActividad, bindActividadEvents } from './actividad.js';
-import { renderCartera, bindCarteraEvents } from './cartera.js';
-
-// 1. Inicialización de Supabase (Infraestructura de Datos)
+// ==========================================
+// 1. VARIABLES DE ENTORNO Y CONFIGURACIÓN
+// ==========================================
 const supabaseUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts'; // Recuerda colocar tu clave pública real aquí
-export const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts'; // Asegúrate de colocar tu clave real aquí
 
-// 2. Módulo de Autenticación (Seguridad)
-export async function loginConGoogle() {
+let supabase = null;
+
+// Función de ingeniería para inicializar Supabase de forma segura
+function inicializarSupabase() {
+    if (window.supabase) {
+        supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        console.log("Infraestructura de Supabase conectada con éxito.");
+        return true;
+    }
+    return false;
+}
+
+// ==========================================
+// 2. MÓDULO DE AUTENTICACIÓN DINÁMICA
+// ==========================================
+async function loginConGoogle() {
+    if (!supabase) {
+        alert("Error de infraestructura: El cliente de la base de datos no está listo.");
+        return;
+    }
     try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
+        // Detecta automáticamente si estás en local o en producción
+        const URL_REDIRECCION = window.location.origin + window.location.pathname;
+
+        const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: 'https://jorgeprdz.github.io/CRMAddlife/' 
+                redirectTo: URL_REDIRECCION 
             }
         });
         if (error) throw error;
     } catch (error) {
-        console.error("Error en autenticación:", error.message);
+        console.error("Error en la autenticación de Google:", error.message);
         alert("No se pudo iniciar sesión: " + error.message);
     }
 }
 
-// 3. Configuración de Gemini (Pendiente de migrar a Cloudflare Worker para ocultar la llave)
-export const API_KEY = "AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg";
+async function cerrarSesion() {
+    if (supabase) {
+        await supabase.auth.signOut();
+    }
+    window.location.reload();
+}
 
-export async function callGemini(promptText, outputElementId) {
+// ==========================================
+// 3. CONFIGURACIÓN DE GEMINI IA
+// ==========================================
+const API_KEY = "AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg";
+
+async function callGemini(promptText, outputElementId) {
     const output = document.getElementById(outputElementId);
     if (output) output.innerText = "Procesando estrategia con IA...";
     
@@ -50,9 +75,30 @@ export async function callGemini(promptText, outputElementId) {
     }
 }
 
-// 4. Lógica de Navegación del Sistema (Controlador de Vistas)
+// ==========================================
+// 4. INTERFAZ VISUAL DE ACCESO (LOGIN)
+// ==========================================
+function renderLoginScreen() {
+    return `
+        <div class="login-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center;">
+            <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); max-width: 400px; width: 90%; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);">
+                <h1 style="margin-bottom: 0.5rem; font-size: 2rem; letter-spacing: -0.5px; color: #fff;">CRM Addlife</h1>
+                <p style="color: #aaa; margin-bottom: 2rem; font-size: 0.95rem;">Ecosistema Privado de Asesoría de Alto Valor</p>
+                <button id="btn-google-login" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; color: #111; font-weight: 600; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google">
+                    Continuar con Google
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// ==========================================
+// 5. CONTROLADOR DE NAVEGACIÓN GLOBAL
+// ==========================================
 window.navigateTo = function(moduleName) {
     const contentArea = document.getElementById('app-content');
+    if (!contentArea) return;
     
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.querySelector(`[data-target="${moduleName}"]`);
@@ -61,19 +107,19 @@ window.navigateTo = function(moduleName) {
     contentArea.innerHTML = ''; 
 
     try {
-        if (moduleName === 'dashboard') {
+        if (moduleName === 'dashboard' && typeof renderDashboard === 'function') {
             contentArea.innerHTML = renderDashboard();
             setTimeout(() => bindDashboardEvents(), 50);
-        } else if (moduleName === 'prospeccion') {
+        } else if (moduleName === 'prospeccion' && typeof renderProspeccion === 'function') {
             contentArea.innerHTML = renderProspeccion();
             setTimeout(() => bindProspeccionEvents(), 50);
-        } else if (moduleName === 'referidos') {
+        } else if (moduleName === 'referidos' && typeof renderReferidos === 'function') {
             contentArea.innerHTML = renderReferidos();
             setTimeout(() => bindReferidosEvents(), 50);
-        } else if (moduleName === 'actividad') {
+        } else if (moduleName === 'actividad' && typeof renderActividad === 'function') {
             contentArea.innerHTML = renderActividad();
             setTimeout(() => bindActividadEvents(), 50);
-        } else if (moduleName === 'cartera') {
+        } else if (moduleName === 'cartera' && typeof renderCartera === 'function') {
             contentArea.innerHTML = renderCartera();
             setTimeout(() => bindCarteraEvents(), 50);
         } else {
@@ -84,8 +130,11 @@ window.navigateTo = function(moduleName) {
     }
 }
 
-// 5. Inicialización al cargar el DOM e interceptor de clics
-document.addEventListener('DOMContentLoaded', () => {
+// ==========================================
+// 6. CICLO DE VIDA Y ARRANQUE SEGURO
+// ==========================================
+document.addEventListener('DOMContentLoaded', async () => {
+    // Interceptor global de clics para el menú lateral
     document.body.addEventListener('click', (e) => {
         const navBtn = e.target.closest('.nav-btn');
         if (navBtn) {
@@ -94,5 +143,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    window.navigateTo('dashboard');
+    // Bucle de espera inteligente por si el CDN de Supabase tarda en responder por red
+    let intentos = 0;
+    while (!inicializarSupabase() && intentos < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100)); // Espera 100ms antes de reintentar
+        intentos++;
+    }
+
+    // Si tras 1 segundo completo no cargó el SDK, muestra error visual sin tumbar la app
+    if (!supabase) {
+        const contentArea = document.getElementById('app-content');
+        if (contentArea) {
+            contentArea.innerHTML = `<div class="card" style="color:red;"><h2>Error de Conexión</h2><p>El servicio de base de datos tardó demasiado en responder. Revisa tu conexión a internet.</p></div>`;
+        }
+        return;
+    }
+
+    // Verificar estado de sesión real
+    const { data: { user } } = await supabase.auth.getUser();
+    const navBar = document.getElementById('main-sidebar');
+
+    if (!user) {
+        if (navBar) navBar.style.display = 'none';
+        
+        const contentArea = document.getElementById('app-content');
+        if (contentArea) {
+            contentArea.innerHTML = renderLoginScreen();
+            const loginBtn = document.getElementById('btn-google-login');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', loginConGoogle);
+            }
+        }
+    } else {
+        if (navBar) navBar.style.display = 'flex';
+        window.navigateTo('dashboard');
+    }
 });
