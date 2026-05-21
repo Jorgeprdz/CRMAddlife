@@ -1,77 +1,56 @@
 :root {
     --bg-light: #f2f2f7;
-    --glass-bg: rgba(255, 255, 255, 0.6);
     --accent: #007AFF;
-    --radius-large: 28px; /* Radio característico de One UI */
-    --radius-button: 22px;
+    --card-glass: rgba(255, 255, 255, 0.7);
 }
 
 body {
-    background-color: var(--bg-light);
-    color: #1c1c1e;
-    padding-bottom: 120px;
-    -webkit-font-smoothing: antialiased;
+    background-color: var(--bg-light) !important;
+    color: #1c1c1e !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding-bottom: 140px; /* Espacio extra para el menú flotante */
 }
 
-/* Tarjetas: Más redondeadas y con mayor desenfoque */
+/* Tarjetas One UI 8.5 */
 .card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(40px); /* Desenfoque extremo */
-    -webkit-backdrop-filter: blur(40px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: var(--radius-large);
-    padding: 28px;
+    background: var(--card-glass) !important;
+    backdrop-filter: blur(40px) !important;
+    -webkit-backdrop-filter: blur(40px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border-radius: 32px !important; /* Esquinas tipo One UI */
+    padding: 24px;
     margin: 20px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
 }
 
-/* Inputs: Más grandes y cómodos */
+/* Inputs y Textareas */
 input, select, textarea {
     width: 100%;
-    padding: 18px; /* Más espacio interior */
-    margin-bottom: 16px;
-    border-radius: 20px; /* Esquinas muy suaves */
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    background: rgba(255, 255, 255, 0.8);
-    font-size: 16px;
-    outline: none;
-    transition: box-shadow 0.3s ease;
+    padding: 18px !important;
+    margin-bottom: 16px !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+    background: #ffffff !important;
+    font-size: 16px !important;
+    outline: none !important;
 }
 
-input:focus {
-    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
-}
-
-/* Botones: Estilo "Píldora" */
-button {
-    font-size: 16px;
-    border-radius: var(--radius-button);
-    padding: 18px;
-    border: none;
-    font-weight: 600;
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-button:active { transform: scale(0.96); }
-
-.btn-primary { background: var(--accent); color: white; }
-.btn-secondary { background: rgba(0, 0, 0, 0.05); color: #333; }
-
-/* MENÚ FLOTANTE: El "Glass" definitivo */
+/* Menú Flotante Estilo Píldora */
 .bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 25px;
-    left: 20px;
-    right: 20px;
-    background: rgba(255, 255, 255, 0.65);
-    backdrop-filter: blur(50px); /* Blur muy alto */
-    -webkit-backdrop-filter: blur(50px);
-    border-radius: 40px; /* Forma de píldora total */
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    padding: 20px 10px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
+    display: flex !important;
+    position: fixed !important;
+    bottom: 25px !important;
+    left: 20px !important;
+    right: 20px !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(50px) !important; /* Blur potente */
+    -webkit-backdrop-filter: blur(50px) !important;
+    border-radius: 50px !important; /* Píldora perfecta */
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    padding: 15px 10px !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
+    z-index: 1000 !important;
 }
 
 .nav-btn {
@@ -79,9 +58,21 @@ button:active { transform: scale(0.96); }
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    color: #8e8e93;
+    background: none !important;
+    border: none !important;
+    color: #8e8e93 !important;
+    font-size: 11px;
 }
 
-.nav-btn.active { color: var(--accent); }
-.nav-btn .icon { font-size: 24px; }
+.nav-btn .icon { font-size: 24px; margin-bottom: 4px; }
+.nav-btn.active { color: var(--accent) !important; font-weight: 600; }
+
+/* Botones */
+.btn-primary {
+    background: var(--accent) !important;
+    color: white !important;
+    border-radius: 20px !important;
+    padding: 18px !important;
+    border: none !important;
+    font-weight: 600 !important;
+}
