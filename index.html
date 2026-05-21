@@ -4,27 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CRM Addlife</title>
+    
     <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
-    <div class="container">
-        <nav class="sidebar" id="main-sidebar" style="display: none;">
-            <div class="logo">CRM Addlife</div>
-            <button class="nav-btn" data-target="dashboard">Dashboard</button>
-            <button class="nav-btn" data-target="prospeccion">Prospección</button>
-            <button class="nav-btn" data-target="referidos">Referidos</button>
-            <button class="nav-btn" data-target="actividad">Actividad</button>
-            <button class="nav-btn" data-target="cartera">Cartera</button>
-        </nav>
-
-        <main id="app-content" class="main-content">
-        </main>
+    <div id="app-content">
+        <div style="text-align: center; margin-top: 50px; color: #888;">Cargando...</div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <nav id="main-sidebar" class="bottom-nav" style="display: none;">
+        <button class="nav-btn active" data-target="dashboard">
+            <span class="icon">🏠</span>
+            <span class="label">Inicio</span>
+        </button>
+        <button class="nav-btn" data-target="prospeccion">
+            <span class="icon">🎯</span>
+            <span class="label">Prospección</span>
+        </button>
+        <button class="nav-btn" data-target="referidos">
+            <span class="icon">🤝</span>
+            <span class="label">Referidos</span>
+        </button>
+        <button class="nav-btn" data-target="actividad">
+            <span class="icon">📈</span>
+            <span class="label">Actividad</span>
+        </button>
+        <button class="nav-btn" data-target="cartera">
+            <span class="icon">💼</span>
+            <span class="label">Cartera</span>
+        </button>
+    </nav>
 
+    <script type="module" src="app.js"></script>
 </body>
 </html>
