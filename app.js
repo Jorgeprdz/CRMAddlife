@@ -31,11 +31,12 @@ async function loginConGoogle() {
         return;
     }
     try {
-        // CORRECCIÓN INTEGRAL DE INFRAESTRUCTURA: Detección estricta y real
+        // CORRECCIÓN TOTAL: Dirección de producción explícita por defecto
         let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
         
-        const host = window.location.hostname;
-        if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.')) {
+        // Validación estricta sin fallas lógicas de operadores
+        const hostActual = window.location.hostname;
+        if (hostActual === 'localhost' || hostActual === '127.0.0.1') {
             urlRedireccion = window.location.origin + window.location.pathname;
         }
 
