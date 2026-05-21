@@ -57,15 +57,18 @@ export async function callGemini(promptText, outputElementId) {
 
         const res = await fetch(functionUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                // Este es el "gafete" que Supabase estaba pidiendo:
+                'Authorization': `Bearer ${supabaseAnonKey}` 
+            },
             body: JSON.stringify({ prompt: promptText })
         });
 
         const data = await res.json();
 
-        // Trampa de diagnóstico para imprimir el error exacto en pantalla
         if (data.error) {
-            if (output) output.innerText = 'Error de Google: ' + JSON.stringify(data.error);
+            if (output) output.innerText = 'Error de Google/Supabase: ' + JSON.stringify(data.error);
             return;
         }
 
@@ -78,7 +81,7 @@ export async function callGemini(promptText, outputElementId) {
         if (output) output.innerText = 'Error de conexión: ' + err.message;
     }
 }
-window.callGemini = callGemini;
+
 
 // ==========================================
 // 4. INTERFAZ Y NAVEGACIÓN
