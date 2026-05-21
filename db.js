@@ -1,21 +1,20 @@
-// db.js - Motor de Base de Datos Local Avanzado (IndexedDB)
+// db.js - Motor de Base de Datos Local (IndexedDB)
 const DB_NAME = 'CRM_Addlife_DB';
-const DB_VERSION = 2; // Actualizado para incluir Cartera
+const DB_VERSION = 2;
 
 function abrirDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-        
+
         request.onupgradeneeded = (e) => {
             const db = e.target.result;
-            
+
             if (!db.objectStoreNames.contains('referidos')) {
                 db.createObjectStore('referidos', { keyPath: 'id' });
             }
             if (!db.objectStoreNames.contains('historial_actividad')) {
                 db.createObjectStore('historial_actividad', { keyPath: 'id' });
             }
-            // NUEVA TABLA DE CARTERA
             if (!db.objectStoreNames.contains('cartera')) {
                 db.createObjectStore('cartera', { keyPath: 'id' });
             }
@@ -37,7 +36,7 @@ export const DB = {
             transaccion.onerror = () => reject(transaccion.error);
         });
     },
-    
+
     obtenerTodos: async (coleccion) => {
         const db = await abrirDB();
         return new Promise((resolve, reject) => {

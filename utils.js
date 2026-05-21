@@ -1,3 +1,5 @@
+// utils.js - Utilidades compartidas
+
 export const agendarCita = (nombreProspecto, detalle) => {
     const titulo = encodeURIComponent(`Cita Asesoría Financiera - ${nombreProspecto}`);
     const descripcion = encodeURIComponent(`Reunión: ${detalle}`);

@@ -1,90 +1,94 @@
+// app.js - Núcleo de la aplicación
+import { renderDashboard, bindDashboardEvents } from './dashboard.js';
+import { renderProspeccion, bindProspeccionEvents } from './prospeccion.js';
+import { renderReferidos, bindReferidosEvents } from './referidos.js';
+import { renderActividad, bindActividadEvents } from './actividad.js';
+import { renderCartera, bindCarteraEvents } from './cartera.js';
+
 // ==========================================
-// 1. VARIABLES DE ENTORNO Y CONFIGURACIÓN
+// 1. CONFIGURACIÓN SUPABASE
 // ==========================================
 const supabaseUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts'; // Asegúrate de colocar tu clave real aquí
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts';
 
 let supabase = null;
 
-// Función de ingeniería para inicializar Supabase de forma segura
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        console.log("Infraestructura de Supabase conectada con éxito.");
+        console.log('Supabase conectado.');
         return true;
     }
     return false;
 }
 
 // ==========================================
-// 2. MÓDULO DE AUTENTICACIÓN DINÁMICA
+// 2. AUTENTICACIÓN (Expuesta al entorno global)
 // ==========================================
-async function loginConGoogle() {
+window.loginConGoogle = async function() {
     if (!supabase) {
-        alert("Error de infraestructura: El cliente de la base de datos no está listo.");
+        alert('Error: El cliente de base de datos no está listo.');
         return;
     }
     try {
-        // Detecta automáticamente si estás en local o en producción
         const URL_REDIRECCION = window.location.origin + window.location.pathname;
-
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: {
-                redirectTo: URL_REDIRECCION 
-            }
+            options: { redirectTo: URL_REDIRECCION }
         });
         if (error) throw error;
     } catch (error) {
-        console.error("Error en la autenticación de Google:", error.message);
-        alert("No se pudo iniciar sesión: " + error.message);
+        console.error('Error en autenticación:', error.message);
+        alert('No se pudo iniciar sesión: ' + error.message);
     }
 }
 
-async function cerrarSesion() {
-    if (supabase) {
-        await supabase.auth.signOut();
-    }
+window.cerrarSesion = async function() {
+    if (supabase) await supabase.auth.signOut();
     window.location.reload();
 }
 
 // ==========================================
-// 3. CONFIGURACIÓN DE GEMINI IA
+// 3. GEMINI IA — Modelo Válido de Producción
 // ==========================================
-const API_KEY = "AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg";
+const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
 
-async function callGemini(promptText, outputElementId) {
+export async function callGemini(promptText, outputElementId) {
     const output = document.getElementById(outputElementId);
-    if (output) output.innerText = "Procesando estrategia con IA...";
-    
+    if (output) output.innerText = 'Procesando con IA...';
+
     try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${API_KEY}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-        });
-        
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+            }
+        );
+
         const data = await res.json();
+
         if (data.candidates && data.candidates.length > 0) {
             if (output) output.innerText = data.candidates[0].content.parts[0].text;
         } else {
-            if (output) output.innerText = "Error API: " + (data.error ? data.error.message : "Respuesta vacía");
+            if (output) output.innerText = 'Error API: ' + (data.error ? data.error.message : 'Respuesta vacía');
         }
     } catch (err) {
-        if (output) output.innerText = "Error de conexión: " + err.message;
+        if (output) output.innerText = 'Error de conexión: ' + err.message;
     }
 }
 
 // ==========================================
-// 4. INTERFAZ VISUAL DE ACCESO (LOGIN)
+// 4. PANTALLA DE LOGIN
 // ==========================================
 function renderLoginScreen() {
     return `
         <div class="login-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center;">
-            <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); max-width: 400px; width: 90%; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);">
+            <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37);">
                 <h1 style="margin-bottom: 0.5rem; font-size: 2rem; letter-spacing: -0.5px; color: #fff;">CRM Addlife</h1>
                 <p style="color: #aaa; margin-bottom: 2rem; font-size: 0.95rem;">Ecosistema Privado de Asesoría de Alto Valor</p>
-                <button id="btn-google-login" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; color: #111; font-weight: 600; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <button id="btn-google-login" onclick="loginConGoogle()" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; color: #111; font-weight: 600; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                     <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google">
                     Continuar con Google
                 </button>
@@ -94,17 +98,17 @@ function renderLoginScreen() {
 }
 
 // ==========================================
-// 5. CONTROLADOR DE NAVEGACIÓN GLOBAL
+// 5. NAVEGACIÓN GLOBAL
 // ==========================================
 window.navigateTo = function(moduleName) {
     const contentArea = document.getElementById('app-content');
     if (!contentArea) return;
-    
+
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.querySelector(`[data-target="${moduleName}"]`);
-    if(activeBtn) activeBtn.classList.add('active');
+    if (activeBtn) activeBtn.classList.add('active');
 
-    contentArea.innerHTML = ''; 
+    contentArea.innerHTML = '';
 
     try {
         if (moduleName === 'dashboard' && typeof renderDashboard === 'function') {
@@ -128,13 +132,12 @@ window.navigateTo = function(moduleName) {
     } catch (error) {
         contentArea.innerHTML = `<div class="card" style="color:red;"><h2>Error</h2><p>${error.message}</p></div>`;
     }
-}
+};
 
 // ==========================================
-// 6. CICLO DE VIDA Y ARRANQUE SEGURO
+// 6. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Interceptor global de clics para el menú lateral
     document.body.addEventListener('click', (e) => {
         const navBtn = e.target.closest('.nav-btn');
         if (navBtn) {
@@ -143,36 +146,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Bucle de espera inteligente por si el CDN de Supabase tarda en responder por red
     let intentos = 0;
     while (!inicializarSupabase() && intentos < 10) {
-        await new Promise(resolve => setTimeout(resolve, 100)); // Espera 100ms antes de reintentar
+        await new Promise(resolve => setTimeout(resolve, 100));
         intentos++;
     }
 
-    // Si tras 1 segundo completo no cargó el SDK, muestra error visual sin tumbar la app
     if (!supabase) {
         const contentArea = document.getElementById('app-content');
         if (contentArea) {
-            contentArea.innerHTML = `<div class="card" style="color:red;"><h2>Error de Conexión</h2><p>El servicio de base de datos tardó demasiado en responder. Revisa tu conexión a internet.</p></div>`;
+            contentArea.innerHTML = `<div class="card" style="color:red;"><h2>Error de Conexión</h2><p>El servicio de base de datos tardó demasiado. Revisa tu conexión a internet.</p></div>`;
         }
         return;
     }
 
-    // Verificar estado de sesión real
     const { data: { user } } = await supabase.auth.getUser();
     const navBar = document.getElementById('main-sidebar');
 
     if (!user) {
         if (navBar) navBar.style.display = 'none';
-        
         const contentArea = document.getElementById('app-content');
         if (contentArea) {
             contentArea.innerHTML = renderLoginScreen();
-            const loginBtn = document.getElementById('btn-google-login');
-            if (loginBtn) {
-                loginBtn.addEventListener('click', loginConGoogle);
-            }
         }
     } else {
         if (navBar) navBar.style.display = 'flex';

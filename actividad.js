@@ -1,3 +1,4 @@
+// actividad.js
 import { DB } from './db.js';
 
 const PUNTOS = {
@@ -18,7 +19,7 @@ export function renderActividad() {
         <div class="card" style="text-align: center;">
             <h2 style="margin-bottom: 5px;">Meta Diaria: 25 Puntos</h2>
             <p style="color: #8E8E93; font-size: 13px; margin-top: 0;" id="fecha-hoy"></p>
-            
+
             <div style="margin: 15px 0;">
                 <h1 id="total-puntos" style="font-size: 52px; margin: 0; color: #1C1C1E;">0</h1>
                 <p style="margin: 0; color: #8E8E93; font-weight: bold; font-size: 12px;">PUNTOS HOY</p>
@@ -39,7 +40,7 @@ export function renderActividad() {
                 </div>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Registro de Actividad</h2>
             <div style="display: grid; gap: 10px;">
@@ -60,7 +61,7 @@ export function renderActividad() {
                 <h2>Análisis Histórico</h2>
                 <button onclick="exportarExcel()" class="btn-secondary" style="padding: 6px 12px; font-size: 12px; background: #34C759; color: white; border: none;">📊 Exportar</button>
             </div>
-            
+
             <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
                 <input type="date" id="filtro-inicio" style="flex: 1; min-width: 120px; padding: 8px; border-radius: 8px; border: 1px solid #E5E5EA; font-size: 13px;">
                 <input type="date" id="filtro-fin" style="flex: 1; min-width: 120px; padding: 8px; border-radius: 8px; border: 1px solid #E5E5EA; font-size: 13px;">
@@ -97,19 +98,17 @@ export async function bindActividadEvents() {
     const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('fecha-hoy').innerText = hoy.toLocaleDateString('es-MX', opciones).toUpperCase();
 
-    // Lógica de títulos dinámicos
     const mesNombre = hoy.toLocaleString('es-MX', { month: 'long' });
     const primerDiaDelMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const diaDeLaSemana = primerDiaDelMes.getDay() || 7; 
+    const diaDeLaSemana = primerDiaDelMes.getDay() || 7;
     const semanaDelMes = Math.ceil((hoy.getDate() + diaDeLaSemana - 1) / 7);
 
     document.getElementById('lbl-semana').innerText = `SEMANA ${semanaDelMes} DE ${mesNombre}`;
     document.getElementById('lbl-mes').innerText = `${mesNombre}`;
 
-    // Filtro antierrores para los NaN temporales
     const defaultState = { referidos: 0, llamadas: 0, citas_obt: 0, citas_inc: 0, citas_cierre: 0, solicitud: 0, poliza: 0, ref_asesor: 0 };
     const temp = localStorage.getItem('actividad_temporal');
-    
+
     if (temp) {
         const parsed = JSON.parse(temp);
         Object.keys(defaultState).forEach(k => {
@@ -120,13 +119,12 @@ export async function bindActividadEvents() {
     }
 
     await calcularAcumuladosGlobales();
-    await procesarFiltroHistorico(); // Carga inicial por defecto
+    await procesarFiltroHistorico();
     actualizarUI();
 
-    // Evento: Guardar Día
     document.getElementById('btn-guardar-dia').addEventListener('click', async () => {
         const total = calcularTotalPuntos(estadoDiario);
-        if (total === 0) return alert("Registra actividad antes de guardar.");
+        if (total === 0) return alert('Registra actividad antes de guardar.');
 
         const fechaHoy = new Date().toISOString().split('T')[0];
         const registro = { id: fechaHoy, fecha: fechaHoy, puntos: total, desglose: { ...estadoDiario } };
@@ -140,16 +138,15 @@ export async function bindActividadEvents() {
 
         localStorage.removeItem('actividad_temporal');
         estadoDiario = { ...defaultState };
-        
-        alert("Actividad guardada con éxito.");
+
+        alert('Actividad guardada con éxito.');
         await calcularAcumuladosGlobales();
-        await procesarFiltroHistorico(); // Refresca tablas
+        await procesarFiltroHistorico();
         actualizarUI();
     });
 
-    // Eventos de Filtros Históricos
     document.getElementById('btn-filtrar-fechas').addEventListener('click', procesarFiltroHistorico);
-    
+
     document.getElementById('btn-limpiar-fechas').addEventListener('click', () => {
         document.getElementById('filtro-inicio').value = '';
         document.getElementById('filtro-fin').value = '';
@@ -171,10 +168,10 @@ function calcularTotalPuntos(desglose) {
 function actualizarUI() {
     const total = calcularTotalPuntos(estadoDiario);
     document.getElementById('total-puntos').innerText = total;
-    
+
     Object.keys(estadoDiario).forEach(k => {
         const el = document.getElementById(`cont-${k}`);
-        if(el) el.innerText = estadoDiario[k];
+        if (el) el.innerText = estadoDiario[k];
     });
 
     const barra = document.getElementById('barra-progreso');
@@ -183,18 +180,17 @@ function actualizarUI() {
     barra.style.background = total >= 25 ? '#34C759' : (total >= 12 ? '#FF9500' : '#FF3B30');
 }
 
-// Calcula exclusivamente los contadores estáticos superiores (Semana actual / Mes actual)
 async function calcularAcumuladosGlobales() {
     const historial = await DB.obtenerTodos('historial_actividad');
     const hoy = new Date();
-    
+
     const lunesActual = new Date(hoy);
     lunesActual.setDate(hoy.getDate() - (hoy.getDay() === 0 ? 6 : hoy.getDay() - 1));
-    lunesActual.setHours(0,0,0,0);
-    
+    lunesActual.setHours(0, 0, 0, 0);
+
     const viernesActual = new Date(lunesActual);
     viernesActual.setDate(lunesActual.getDate() + 4);
-    viernesActual.setHours(23,59,59,999);
+    viernesActual.setHours(23, 59, 59, 999);
 
     const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
@@ -202,7 +198,7 @@ async function calcularAcumuladosGlobales() {
     let ptsMes = 0;
 
     historial.forEach(reg => {
-        const fReg = new Date(reg.fecha + 'T12:00:00'); 
+        const fReg = new Date(reg.fecha + 'T12:00:00');
         if (fReg >= lunesActual && fReg <= viernesActual) ptsSemana += reg.puntos;
         if (fReg >= primerDiaMes) ptsMes += reg.puntos;
     });
@@ -211,7 +207,6 @@ async function calcularAcumuladosGlobales() {
     document.getElementById('puntos-mes').innerText = `${ptsMes} pts`;
 }
 
-// Procesa filtros, dibuja gráficas y lista de días
 async function procesarFiltroHistorico() {
     const historial = await DB.obtenerTodos('historial_actividad');
     const fInicio = document.getElementById('filtro-inicio')?.value;
@@ -219,7 +214,6 @@ async function procesarFiltroHistorico() {
 
     let registrosFiltrados = historial;
 
-    // Si hay filtros, aplicamos. Si no, por defecto mostramos el mes actual.
     if (fInicio || fFin) {
         registrosFiltrados = historial.filter(reg => {
             let pasa = true;
@@ -229,11 +223,10 @@ async function procesarFiltroHistorico() {
         });
     } else {
         const hoy = new Date();
-        const strMesActual = hoy.toISOString().slice(0, 7); // "YYYY-MM"
+        const strMesActual = hoy.toISOString().slice(0, 7);
         registrosFiltrados = historial.filter(reg => reg.fecha.startsWith(strMesActual));
     }
 
-    // 1. Recalcular conversiones de ese bloque de días
     let totalRango = { referidos: 0, llamadas: 0, citas_obt: 0, citas_inc: 0, citas_cierre: 0, solicitud: 0, poliza: 0 };
     registrosFiltrados.forEach(reg => {
         Object.keys(totalRango).forEach(k => {
@@ -242,15 +235,13 @@ async function procesarFiltroHistorico() {
     });
     renderGraficasConversion(totalRango);
 
-    // 2. Dibujar la lista de días para poder consultarlos o eliminarlos
     const contenedorLista = document.getElementById('lista-historial');
     if (registrosFiltrados.length === 0) {
         contenedorLista.innerHTML = `<p style="color:gray; font-size:13px; text-align:center;">No hay registros en este periodo.</p>`;
         return;
     }
 
-    // Ordenamos de más reciente a más antiguo
-    contenedorLista.innerHTML = registrosFiltrados.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(dia => {
+    contenedorLista.innerHTML = registrosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(dia => {
         const color = dia.puntos >= 25 ? '#34C759' : (dia.puntos >= 12 ? '#FF9500' : '#FF3B30');
         return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #F9F9FB; border: 1px solid #E5E5EA; border-radius: 8px;">
@@ -299,12 +290,9 @@ function dibujarBarraMetrica(titulo, ratio, porcentaje, color) {
     `;
 }
 
-// Nueva función global para eliminar días de la base de datos
 window.eliminarDiaActividad = async (fechaId) => {
-    if (confirm(`¿Estás seguro de que deseas eliminar el registro de actividad del día ${fechaId}? Esta acción no se puede deshacer.`)) {
+    if (confirm(`¿Deseas eliminar el registro de actividad del día ${fechaId}? Esta acción no se puede deshacer.`)) {
         await DB.eliminar('historial_actividad', fechaId);
-        
-        // Refrescamos toda la UI para que los puntos y gráficas se ajusten a la baja
         await calcularAcumuladosGlobales();
         await procesarFiltroHistorico();
     }
@@ -312,24 +300,22 @@ window.eliminarDiaActividad = async (fechaId) => {
 
 window.exportarExcel = async () => {
     const historial = await DB.obtenerTodos('historial_actividad');
-    if (historial.length === 0) return alert("No existen registros históricos para exportar.");
+    if (historial.length === 0) return alert('No existen registros históricos para exportar.');
 
-    let csvContent = "\uFEFF"; 
-    csvContent += "Fecha,Puntos Totales,Referidos,Llamadas,Citas Obtenidas,Citas Iniciales,Citas de Cierre,Solicitudes Firmadas,Polizas Pagadas,Referidos de Asesor\n";
+    let csvContent = '\uFEFF';
+    csvContent += 'Fecha,Puntos Totales,Referidos,Llamadas,Citas Obtenidas,Citas Iniciales,Citas de Cierre,Solicitudes Firmadas,Polizas Pagadas,Referidos de Asesor\n';
 
-    historial.sort((a,b) => new Date(a.fecha) - new Date(b.fecha)).forEach(r => {
+    historial.sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).forEach(r => {
         const d = r.desglose;
         csvContent += `${r.fecha},${r.puntos},${d.referidos || 0},${d.llamadas || 0},${d.citas_obt || 0},${d.citas_inc || 0},${d.citas_cierre || 0},${d.solicitud || 0},${d.poliza || 0},${d.ref_asesor || 0}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Reporte_Productividad_${new Date().toISOString().split('T')[0]}.csv`);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Reporte_Productividad_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
-    
     link.click();
     document.body.removeChild(link);
 };

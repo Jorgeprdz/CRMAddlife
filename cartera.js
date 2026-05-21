@@ -1,3 +1,4 @@
+// cartera.js
 import { DB } from './db.js';
 
 export function renderCartera() {
@@ -14,7 +15,7 @@ export function renderCartera() {
                     <option value="Gastos Médicos Mayores">Gastos Médicos Mayores</option>
                     <option value="Ahorro">Ahorro / Educación</option>
                 </select>
-                
+
                 <select id="c-forma-pago">
                     <option value="">Forma de Pago...</option>
                     <option value="Mensual">Mensual</option>
@@ -28,10 +29,10 @@ export function renderCartera() {
                     <option value="Tarjeta de Débito">Tarjeta de Débito</option>
                     <option value="Pago Directo">Pago Directo (Ficha)</option>
                 </select>
-                
+
                 <input id="c-prima" type="number" placeholder="Prima Anualizada ($ MXN)">
                 <input id="c-suma" type="number" placeholder="Suma Asegurada ($)">
-                
+
                 <div style="grid-column: span 2;">
                     <label style="font-size: 12px; color: #8E8E93; font-weight: bold;">FECHA DEL PRÓXIMO PAGO:</label>
                     <input type="date" id="c-fecha" style="width: 100%; margin-top: 5px;">
@@ -67,13 +68,13 @@ export async function bindCarteraEvents() {
 
     const btnGuardar = document.getElementById('btn-guardar-poliza');
     btnGuardar.replaceWith(btnGuardar.cloneNode(true));
-    
+
     document.getElementById('btn-guardar-poliza').addEventListener('click', async () => {
         const cliente = document.getElementById('c-cliente').value;
         const poliza = document.getElementById('c-poliza').value;
         const fecha = document.getElementById('c-fecha').value;
-        
-        if (!cliente || !poliza || !fecha) return alert("Cliente, Póliza y Fecha de Próximo Pago son obligatorios.");
+
+        if (!cliente || !poliza || !fecha) return alert('Cliente, Póliza y Fecha de Próximo Pago son obligatorios.');
 
         const nuevaPoliza = {
             id: Date.now().toString(),
@@ -88,23 +89,21 @@ export async function bindCarteraEvents() {
         };
 
         await DB.guardar('cartera', nuevaPoliza);
-        
-        // Limpiar
+
         document.querySelectorAll('input').forEach(i => i.value = '');
         document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
-        
+
         await window.renderListasCartera();
-        alert("Póliza guardada en cartera.");
+        alert('Póliza guardada en cartera.');
     });
 
     document.getElementById('filtro-cliente').addEventListener('input', window.renderListasCartera);
     document.getElementById('filtro-estado').addEventListener('change', window.renderListasCartera);
 }
 
-// Analizador de fechas para semáforo
 function evaluarSemaforo(fechaString) {
     const hoy = new Date();
-    hoy.setHours(0,0,0,0);
+    hoy.setHours(0, 0, 0, 0);
     const fPago = new Date(fechaString + 'T12:00:00');
     const diasDiferencia = Math.ceil((fPago - hoy) / (1000 * 60 * 60 * 24));
 
@@ -118,14 +117,13 @@ const formatearDinero = (cant) => new Intl.NumberFormat('es-MX', { style: 'curre
 
 window.renderListasCartera = async () => {
     const db = await DB.obtenerTodos('cartera');
-    
-    // 1. Render Dashboard Semáforo (Prioridad: Rojo y Naranja)
+
     const dashboard = document.getElementById('dashboard-semaforo');
     const criticos = db.map(p => ({ ...p, semaforo: evaluarSemaforo(p.fechaPago) }))
-                       .filter(p => p.semaforo.estado === 'Rojo' || p.semaforo.estado === 'Naranja')
-                       .sort((a,b) => new Date(a.fechaPago) - new Date(b.fechaPago));
+        .filter(p => p.semaforo.estado === 'Rojo' || p.semaforo.estado === 'Naranja')
+        .sort((a, b) => new Date(a.fechaPago) - new Date(b.fechaPago));
 
-    if(criticos.length === 0) {
+    if (criticos.length === 0) {
         dashboard.innerHTML = `<div style="text-align: center; color: #34C759; padding: 10px;">🟢 ¡Excelente! No hay pagos vencidos ni próximos a vencer.</div>`;
     } else {
         dashboard.innerHTML = criticos.map(p => `
@@ -136,13 +134,12 @@ window.renderListasCartera = async () => {
                 </div>
                 <div style="text-align: right;">
                     <span style="font-size: 12px; display: block; color: #666;">${p.formaPago} - ${p.conductoCobro}</span>
-                    <button onclick="window.open('https://wa.me/?text=${encodeURIComponent(`Hola ${p.cliente}, te recuerdo que el pago de tu póliza ${p.poliza} está próximo/vencido. Quedo a tus órdenes.`)}')"" style="background: #25D366; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-top: 4px;">📲 Cobrar WA</button>
+                    <button onclick="window.open('https://wa.me/?text=${encodeURIComponent(`Hola ${p.cliente}, te recuerdo que el pago de tu póliza ${p.poliza} está próximo/vencido. Quedo a tus órdenes.`)}')" style="background: #25D366; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-top: 4px;">📲 Cobrar WA</button>
                 </div>
             </div>
         `).join('');
     }
 
-    // 2. Render Lista General con Filtros
     const contenedorLista = document.getElementById('lista-cartera');
     const filtroTexto = document.getElementById('filtro-cliente').value.toLowerCase();
     const filtroEstado = document.getElementById('filtro-estado').value;
@@ -161,7 +158,7 @@ window.renderListasCartera = async () => {
         return;
     }
 
-    contenedorLista.innerHTML = filtrados.sort((a,b) => new Date(a.fechaPago) - new Date(b.fechaPago)).map(p => `
+    contenedorLista.innerHTML = filtrados.sort((a, b) => new Date(a.fechaPago) - new Date(b.fechaPago)).map(p => `
         <div style="background: #F9F9FB; border: 1px solid #E5E5EA; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -172,14 +169,14 @@ window.renderListasCartera = async () => {
                     ${p.semaforo.icon} ${p.fechaPago}
                 </span>
             </div>
-            
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; color: #48484A; background: #fff; padding: 8px; border-radius: 6px; border: 1px dashed #ccc;">
                 <div><strong>Prima Anual:</strong><br>${formatearDinero(p.prima)}</div>
                 <div><strong>Suma Asegurada:</strong><br>${formatearDinero(p.suma)}</div>
                 <div style="margin-top: 5px;"><strong>Forma:</strong><br>${p.formaPago}</div>
                 <div style="margin-top: 5px;"><strong>Cobro:</strong><br>${p.conductoCobro}</div>
             </div>
-            
+
             <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
                 <button onclick="eliminarPolizaDobleCheck('${p.id}')" style="background: transparent; color: #FF3B30; border: 1px solid #FF3B30; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: bold;">🗑️ Eliminar Registro</button>
             </div>
@@ -188,10 +185,8 @@ window.renderListasCartera = async () => {
 };
 
 window.eliminarPolizaDobleCheck = async (id) => {
-    // Primer Check
-    if (confirm("¿Deseas eliminar esta póliza de tu cartera?")) {
-        // Segundo Check (Seguridad estricta)
-        if (confirm("⚠️ ADVERTENCIA: Esta acción es irreversible y borrará el registro financiero. ¿Confirmas que deseas proceder?")) {
+    if (confirm('¿Deseas eliminar esta póliza de tu cartera?')) {
+        if (confirm('⚠️ ADVERTENCIA: Esta acción es irreversible. ¿Confirmas que deseas proceder?')) {
             await DB.eliminar('cartera', id);
             await window.renderListasCartera();
         }

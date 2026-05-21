@@ -1,3 +1,4 @@
+// referidos.js
 import { DB } from './db.js';
 import { agendarCita } from './utils.js';
 
@@ -15,13 +16,13 @@ export function renderReferidos() {
                 <button id="btn-guardar-referido" class="btn-primary" style="margin-top: 10px;">💾 Guardar Referido</button>
             </div>
         </div>
-        
+
         <div class="card">
             <h2>Pipeline de Referidos</h2>
-            
+
             <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
                 <input id="filter-nombre" placeholder="🔍 Buscar por nombre..." style="flex: 2; min-width: 180px; padding: 10px; border-radius: 8px; border: 1px solid #E5E5EA; font-size: 14px;">
-                
+
                 <select id="filter-estatus" style="flex: 1; min-width: 130px; padding: 10px; border-radius: 8px; border: 1px solid #E5E5EA; font-size: 14px; font-weight: bold; background: #FFF;">
                     <option value="Todos">🌈 Todos</option>
                     <option value="Nuevo">🔵 Nuevo</option>
@@ -29,7 +30,7 @@ export function renderReferidos() {
                     <option value="Cita">🟢 Cita</option>
                     <option value="Descartado">⚫ Descartado</option>
                 </select>
-                
+
                 <button id="btn-limpiar-filtros" class="btn-secondary" style="padding: 10px 15px; font-size: 14px; white-space: nowrap;">🧹 Limpiar</button>
             </div>
 
@@ -41,43 +42,40 @@ export function renderReferidos() {
 export async function bindReferidosEvents() {
     await window.renderPipelineReferidos();
 
-    // Eventos de filtros en tiempo real
     document.getElementById('filter-nombre').addEventListener('input', () => window.renderPipelineReferidos());
     document.getElementById('filter-estatus').addEventListener('change', () => window.renderPipelineReferidos());
-    
-    // Botón de Limpiar Filtros
+
     document.getElementById('btn-limpiar-filtros').addEventListener('click', () => {
         document.getElementById('filter-nombre').value = '';
         document.getElementById('filter-estatus').value = 'Todos';
         window.renderPipelineReferidos();
     });
 
-    // Evitar duplicación de eventos
     const btnGuardar = document.getElementById('btn-guardar-referido');
     btnGuardar.replaceWith(btnGuardar.cloneNode(true));
-    
+
     document.getElementById('btn-guardar-referido').addEventListener('click', async () => {
         const nombre = document.getElementById('ref-nombre').value;
         const tel = document.getElementById('ref-telefono').value;
-        
-        if (!nombre || !tel) return alert("Nombre y teléfono son obligatorios para prospectar.");
+
+        if (!nombre || !tel) return alert('Nombre y teléfono son obligatorios para prospectar.');
 
         const nuevoReferido = {
             id: Date.now(),
-            nombre: nombre,
-            tel: tel,
+            nombre,
+            tel,
             origen: document.getElementById('ref-origen').value,
             obs: document.getElementById('ref-obs').value,
             estatus: 'Nuevo'
         };
 
         await DB.guardar('referidos', nuevoReferido);
-        
+
         document.getElementById('ref-nombre').value = '';
         document.getElementById('ref-telefono').value = '';
         document.getElementById('ref-origen').value = '';
         document.getElementById('ref-obs').value = '';
-        
+
         await window.renderPipelineReferidos();
     });
 }
@@ -85,9 +83,9 @@ export async function bindReferidosEvents() {
 window.renderPipelineReferidos = async () => {
     const contenedor = document.getElementById('lista-referidos');
     if (!contenedor) return;
-    
+
     const db = await DB.obtenerTodos('referidos');
-    
+
     const filtroNombre = document.getElementById('filter-nombre')?.value.toLowerCase() || '';
     const filtroEstatus = document.getElementById('filter-estatus')?.value || 'Todos';
 
@@ -98,7 +96,7 @@ window.renderPipelineReferidos = async () => {
     if (filtroEstatus !== 'Todos') {
         dbFiltrada = dbFiltrada.filter(r => r.estatus === filtroEstatus);
     }
-    
+
     if (dbFiltrada.length === 0) {
         contenedor.innerHTML = `<p style="text-align:center; color:gray; padding: 20px;">No se encontraron registros.</p>`;
         return;
@@ -118,9 +116,9 @@ window.renderPipelineReferidos = async () => {
                     <option value="Descartado" ${r.estatus === 'Descartado' ? 'selected' : ''}>⚫ Descartado</option>
                 </select>
             </div>
-            
+
             ${r.obs ? `<p style="font-size: 13px; color: #48484A; margin: 5px 0;">💬 ${r.obs}</p>` : ''}
-            
+
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 <button onclick="llamarReferido('${r.tel}')" class="btn-primary" style="flex: 1; min-width: 45%; padding: 8px; font-size: 13px; background: #34C759; border-color: #34C759;">📞 Llamar</button>
                 <button onclick="prospectarReferido('${r.nombre}', '${r.tel}', '${r.origen}', '${r.obs}')" class="btn-primary" style="flex: 1; min-width: 45%; padding: 8px; font-size: 13px; background: #007AFF; border-color: #007AFF;">💬 Crear WA</button>
@@ -133,23 +131,23 @@ window.renderPipelineReferidos = async () => {
 };
 
 function getColorBorde(estatus) {
-    if(estatus === 'Nuevo') return '#007AFF';
-    if(estatus === 'Seguimiento') return '#FF9500';
-    if(estatus === 'Cita') return '#34C759';
+    if (estatus === 'Nuevo') return '#007AFF';
+    if (estatus === 'Seguimiento') return '#FF9500';
+    if (estatus === 'Cita') return '#34C759';
     return '#8E8E93';
 }
 
 function getColorFondo(estatus) {
-    if(estatus === 'Nuevo') return '#E5F0FF';
-    if(estatus === 'Seguimiento') return '#FFF5E5';
-    if(estatus === 'Cita') return '#E5FDEB';
+    if (estatus === 'Nuevo') return '#E5F0FF';
+    if (estatus === 'Seguimiento') return '#FFF5E5';
+    if (estatus === 'Cita') return '#E5FDEB';
     return '#F2F2F7';
 }
 
 function getColorTexto(estatus) {
-    if(estatus === 'Nuevo') return '#007AFF';
-    if(estatus === 'Seguimiento') return '#FF9500';
-    if(estatus === 'Cita') return '#34C759';
+    if (estatus === 'Nuevo') return '#007AFF';
+    if (estatus === 'Seguimiento') return '#FF9500';
+    if (estatus === 'Cita') return '#34C759';
     return '#8E8E93';
 }
 
@@ -180,7 +178,7 @@ window.recordatorioManana = (nombre) => {
 };
 
 window.eliminarReferido = async (id) => {
-    if (confirm("¿Estás seguro de eliminar este prospecto?")) {
+    if (confirm('¿Estás seguro de eliminar este prospecto?')) {
         await DB.eliminar('referidos', id);
         await window.renderPipelineReferidos();
     }
