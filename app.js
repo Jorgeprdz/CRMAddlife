@@ -23,7 +23,7 @@ function inicializarSupabase() {
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN DINÁMICA DE ENTORNO
+// 2. AUTENTICACIÓN GLOBAL BLINDADA
 // ==========================================
 window.loginConGoogle = async function() {
     if (!supabase) {
@@ -31,10 +31,10 @@ window.loginConGoogle = async function() {
         return;
     }
     try {
-        // Dirección de producción por defecto
+        // Dirección de producción obligatoria por defecto
         let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
         
-        // Si el navegador detecta que ejecutas el servidor local en Acode
+        // Detección estricta de entorno local de desarrollo
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             urlRedireccion = window.location.origin + window.location.pathname;
         }
@@ -60,7 +60,7 @@ window.cerrarSesion = async function() {
 }
 
 // ==========================================
-// 3. GEMINI IA — Modelo Válido de Producción
+// 3. GEMINI IA — Modelo de Producción
 // ==========================================
 const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
 
@@ -146,7 +146,7 @@ window.navigateTo = function(moduleName) {
 };
 
 // ==========================================
-// 6. ARRANQUE Y CONTROL DE SESIÓN
+// 6. ARRANQUE Y ASIGNACIÓN DE EVENTOS NATIVOS
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     document.body.addEventListener('click', (e) => {
@@ -180,6 +180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (contentArea) {
             contentArea.innerHTML = renderLoginScreen();
             
+            // Inyección del evento directamente al nodo del DOM para evitar fallas de aislamiento
             const loginBtn = document.getElementById('btn-google-login');
             if (loginBtn) {
                 loginBtn.addEventListener('click', window.loginConGoogle);
