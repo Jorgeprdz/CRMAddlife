@@ -23,18 +23,23 @@ function inicializarSupabase() {
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN (Expuesta al entorno global)
+// 2. AUTENTICACIÓN DINÁMICA
 // ==========================================
-window.loginConGoogle = async function() {
+async function loginConGoogle() {
     if (!supabase) {
         alert('Error: El cliente de base de datos no está listo.');
         return;
     }
     try {
+        // Detecta automáticamente si estás en local o en producción en tiempo real
         const URL_REDIRECCION = window.location.origin + window.location.pathname;
+        console.log("Redirigiendo tras login a:", URL_REDIRECCION);
+
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: URL_REDIRECCION }
+            options: { 
+                redirectTo: URL_REDIRECCION 
+            }
         });
         if (error) throw error;
     } catch (error) {
@@ -43,7 +48,7 @@ window.loginConGoogle = async function() {
     }
 }
 
-window.cerrarSesion = async function() {
+async function cerrarSesion() {
     if (supabase) await supabase.auth.signOut();
     window.location.reload();
 }
@@ -88,7 +93,7 @@ function renderLoginScreen() {
             <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37);">
                 <h1 style="margin-bottom: 0.5rem; font-size: 2rem; letter-spacing: -0.5px; color: #fff;">CRM Addlife</h1>
                 <p style="color: #aaa; margin-bottom: 2rem; font-size: 0.95rem;">Ecosistema Privado de Asesoría de Alto Valor</p>
-                <button id="btn-google-login" onclick="loginConGoogle()" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; color: #111; font-weight: 600; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <button id="btn-google-login" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; color: #111; font-weight: 600; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                     <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google">
                     Continuar con Google
                 </button>
@@ -135,7 +140,7 @@ window.navigateTo = function(moduleName) {
 };
 
 // ==========================================
-// 6. ARRANQUE
+// 6. ARRANQUE Y CONTROL DE SESIÓN
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     document.body.addEventListener('click', (e) => {
@@ -168,6 +173,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const contentArea = document.getElementById('app-content');
         if (contentArea) {
             contentArea.innerHTML = renderLoginScreen();
+            
+            // Asignación limpia del evento al botón inyectado
+            const loginBtn = document.getElementById('btn-google-login');
+            if (loginBtn) loginBtn.addEventListener('click', loginConGoogle);
         }
     } else {
         if (navBar) navBar.style.display = 'flex';
