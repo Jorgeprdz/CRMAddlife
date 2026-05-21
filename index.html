@@ -9,8 +9,26 @@
 </head>
 <body>
 
+    <!-- HEADER FIJO CON BLUR -->
+    <header class="app-header" id="app-header">
+        <span class="app-header-title" id="header-title">CRM Addlife</span>
+
+        <!-- Toggle iOS manual -->
+        <div class="ios-toggle-wrap" title="Modo oscuro">
+            <span class="toggle-icon">☀️</span>
+            <label class="ios-toggle" aria-label="Activar modo oscuro">
+                <input type="checkbox" id="theme-toggle">
+                <div class="ios-toggle-track"></div>
+                <div class="ios-toggle-thumb"></div>
+            </label>
+            <span class="toggle-icon">🌙</span>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
     <div id="app-content"></div>
 
+    <!-- BARRA DE NAVEGACIÓN FLOTANTE CON BLUR -->
     <nav id="main-sidebar" class="bottom-nav">
         <button class="nav-btn active" data-target="dashboard">
             <span class="icon">🏠</span>
@@ -35,11 +53,28 @@
     </nav>
 
     <script type="module" src="app.js"></script>
+
+    <!-- Toggle handler — se ejecuta antes de app.js para evitar flash -->
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = saved === 'dark' || (!saved && prefersDark);
+            if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+
+            // Sincronizar checkbox cuando el DOM cargue
+            document.addEventListener('DOMContentLoaded', function() {
+                const toggle = document.getElementById('theme-toggle');
+                if (!toggle) return;
+                toggle.checked = (document.documentElement.getAttribute('data-theme') === 'dark');
+
+                toggle.addEventListener('change', function() {
+                    const next = this.checked ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', next);
+                    localStorage.setItem('theme', next);
+                });
+            });
+        })();
+    </script>
 </body>
-<div class="theme-switch" onclick="toggleTheme()"></div>
-
-<button onclick="toggleTheme()" style="position:fixed; top:20px; right:20px; z-index:9999; border-radius:50%; width:50px; height:50px;">
-    🌓
-</button>
-
 </html>

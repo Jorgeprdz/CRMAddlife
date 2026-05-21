@@ -1,58 +1,397 @@
+/* =============================================
+   CRM ADDLIFE — ONE UI 8.5 MINIMALISTA
+   Dark theme: gris oscuro (no negro puro)
+   Toggle iOS manual + blur en header y nav
+   ============================================= */
+
+/* ---- TOKENS DE DISEÑO ---- */
 :root {
-    --bg-color: #f7f7f9;
-    --card-bg: #ffffff;
-    --text-primary: #1a1a1a;
-    --accent: #007AFF; /* Solo azul para acciones clave */
-    --gray-neutral: #e4e4e6;
+    /* Light mode */
+    --bg:           #f2f2f7;
+    --bg-secondary: #ffffff;
+    --surface:      #ffffff;
+    --surface-2:    #f7f7f9;
+    --text-primary:   #1c1c1e;
+    --text-secondary: #6e6e73;
+    --text-tertiary:  #aeaeb2;
+    --accent:       #007AFF;
+    --accent-soft:  rgba(0, 122, 255, 0.12);
+    --danger:       #FF3B30;
+    --success:      #34C759;
+    --warning:      #FF9F0A;
+    --separator:    rgba(60, 60, 67, 0.12);
+
+    /* Blur / Glass */
+    --blur-bg-light:    rgba(242, 242, 247, 0.82);
+    --blur-bg-nav:      rgba(255, 255, 255, 0.78);
+    --blur-strength:    saturate(180%) blur(22px);
+
+    /* Toggle */
+    --toggle-off:   #d1d1d6;
+    --toggle-on:    var(--accent);
+    --toggle-thumb: #ffffff;
+
+    /* Radios y sombras */
+    --radius-card:  22px;
+    --radius-pill:  100px;
+    --shadow-card:  0 2px 16px rgba(0,0,0,0.06);
+    --shadow-nav:   0 -2px 28px rgba(0,0,0,0.08);
+    --shadow-float: 0 8px 32px rgba(0,0,0,0.10);
+
+    /* Transiciones */
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --dur: 0.28s;
 }
 
 [data-theme='dark'] {
-    --bg-color: #121212;
-    --card-bg: #1e1e1e;
-    --text-primary: #f2f2f7;
-    --gray-neutral: #2c2c2e;
+    --bg:           #1c1c1e;
+    --bg-secondary: #2c2c2e;
+    --surface:      #2c2c2e;
+    --surface-2:    #3a3a3c;
+    --text-primary:   #f5f5f7;
+    --text-secondary: #aeaeb2;
+    --text-tertiary:  #6e6e73;
+    --separator:    rgba(255, 255, 255, 0.10);
+
+    --blur-bg-light: rgba(28, 28, 30, 0.85);
+    --blur-bg-nav:   rgba(38, 38, 40, 0.80);
+    --shadow-card:  0 2px 16px rgba(0,0,0,0.28);
+    --shadow-nav:   0 -2px 28px rgba(0,0,0,0.32);
+    --shadow-float: 0 8px 32px rgba(0,0,0,0.38);
+    --toggle-off:   #48484a;
 }
+
+/* ---- RESET ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
 
 body {
-    background-color: var(--bg-color) !important;
-    color: var(--text-primary) !important;
-    padding-bottom: 120px;
+    font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    padding-bottom: 110px;
+    padding-top: 72px;        /* espacio para el header fijo */
+    transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* Tarjetas Minimalistas */
+/* ============================================
+   HEADER FLOTANTE CON BLUR
+   ============================================ */
+.app-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 900;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: var(--blur-bg-light);
+    -webkit-backdrop-filter: var(--blur-strength);
+    backdrop-filter: var(--blur-strength);
+    border-bottom: 1px solid var(--separator);
+    transition: background var(--dur) var(--ease);
+}
+
+.app-header-title {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+    transition: color var(--dur) var(--ease);
+}
+
+/* ============================================
+   TOGGLE TIPO iOS
+   ============================================ */
+.ios-toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toggle-icon {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    user-select: none;
+    transition: color var(--dur) var(--ease);
+}
+
+.ios-toggle {
+    position: relative;
+    width: 51px;
+    height: 31px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ios-toggle input {
+    opacity: 0;
+    width: 0; height: 0;
+    position: absolute;
+}
+
+.ios-toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-pill);
+    background: var(--toggle-off);
+    transition: background var(--dur) var(--ease);
+}
+
+.ios-toggle input:checked + .ios-toggle-track {
+    background: var(--toggle-on);
+}
+
+.ios-toggle-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 27px; height: 27px;
+    border-radius: 50%;
+    background: var(--toggle-thumb);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.22), 0 0 0 0.5px rgba(0,0,0,0.06);
+    transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+    pointer-events: none;
+}
+
+.ios-toggle input:checked ~ .ios-toggle-thumb {
+    transform: translateX(20px);
+}
+
+.ios-toggle input:active ~ .ios-toggle-thumb {
+    width: 32px;
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
 .card {
-    background: var(--card-bg) !important;
-    border-radius: 28px !important;
-    padding: 24px;
-    margin: 20px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.04) !important;
+    background: var(--surface) !important;
+    border-radius: var(--radius-card) !important;
+    padding: 20px 22px !important;
+    margin: 12px 16px !important;
+    box-shadow: var(--shadow-card) !important;
+    border: 1px solid var(--separator);
+    transition: background var(--dur) var(--ease),
+                box-shadow var(--dur) var(--ease),
+                border-color var(--dur) var(--ease);
 }
 
-/* Botones jerarquizados: Solo el principal es azul */
-button { border-radius: 18px !important; padding: 16px 24px !important; border: none; font-weight: 500; }
-.btn-primary { background: var(--accent) !important; color: white !important; }
-.btn-secondary { background: var(--gray-neutral) !important; color: var(--text-primary) !important; }
+/* Accent strip en cards específicas */
+.card[style*="border-left"] {
+    border-left-width: 4px !important;
+    border-left-style: solid !important;
+}
 
-/* Menú Flotante Centrado */
+/* ============================================
+   BOTONES
+   ============================================ */
+button {
+    border-radius: 14px !important;
+    padding: 14px 22px !important;
+    border: none;
+    font-weight: 500;
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s var(--ease), transform 0.12s var(--ease);
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:active { opacity: 0.75; transform: scale(0.97); }
+
+.btn-primary {
+    background: var(--accent) !important;
+    color: #ffffff !important;
+}
+
+.btn-secondary {
+    background: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--separator) !important;
+}
+
+/* ============================================
+   INPUTS / SELECTS
+   ============================================ */
+input, select, textarea {
+    background: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--separator) !important;
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+    width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent) !important;
+}
+
+/* Placeholder */
+::placeholder { color: var(--text-tertiary) !important; }
+
+/* ============================================
+   NAVEGACIÓN FLOTANTE INFERIOR — BLUR
+   ============================================ */
 .bottom-nav {
-    display: flex; position: fixed; bottom: 30px; 
-    left: 50%; transform: translateX(-50%); /* Centrado absoluto */
-    width: 90%; max-width: 400px;
-    background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
-    border-radius: 30px; padding: 10px;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    display: flex;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 420px;
+    background: var(--blur-bg-nav);
+    -webkit-backdrop-filter: var(--blur-strength);
+    backdrop-filter: var(--blur-strength);
+    border-radius: 28px;
+    padding: 8px 6px;
+    box-shadow: var(--shadow-float);
+    border: 1px solid var(--separator);
+    z-index: 800;
+    gap: 2px;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 
-/* Switch Minimalista (Toggle) */
-.theme-switch {
-    position: fixed; top: 20px; right: 20px;
-    width: 50px; height: 26px; background: #ccc;
-    border-radius: 15px; cursor: pointer; transition: 0.3s;
+.nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 20px !important;
+    padding: 8px 4px !important;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1px;
+    cursor: pointer;
+    transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+    -webkit-tap-highlight-color: transparent;
+    min-height: 52px;
 }
-.theme-switch::after {
-    content: ''; position: absolute; top: 3px; left: 3px;
-    width: 20px; height: 20px; background: white;
-    border-radius: 50%; transition: 0.3s;
+
+.nav-btn .icon {
+    font-size: 22px;
+    line-height: 1;
+    transition: transform 0.2s var(--ease);
 }
-[data-theme='dark'] .theme-switch { background: var(--accent); }
-[data-theme='dark'] .theme-switch::after { transform: translateX(24px); }
+
+.nav-btn .label {
+    font-size: 10px;
+    font-weight: 500;
+    color: inherit;
+    transition: color var(--dur) var(--ease);
+}
+
+.nav-btn.active {
+    color: var(--accent);
+    background: var(--accent-soft) !important;
+}
+
+.nav-btn.active .icon {
+    transform: translateY(-1px);
+}
+
+.nav-btn:active .icon { transform: scale(0.88); }
+
+/* ============================================
+   TIPOGRAFÍA
+   ============================================ */
+h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: var(--text-primary); }
+h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; color: var(--text-primary); }
+h3 { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+p  { font-size: 15px; line-height: 1.55; color: var(--text-secondary); }
+
+/* Section titles dentro de módulos */
+.section-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-tertiary);
+    padding: 16px 20px 6px;
+}
+
+/* ============================================
+   LISTAS / FILAS
+   ============================================ */
+.list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--separator);
+    transition: border-color var(--dur) var(--ease);
+}
+.list-row:last-child { border-bottom: none; }
+
+/* ============================================
+   BADGES / PILLS
+   ============================================ */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-blue    { background: var(--accent-soft); color: var(--accent); }
+.badge-green   { background: rgba(52,199,89,0.12); color: var(--success); }
+.badge-red     { background: rgba(255,59,48,0.12); color: var(--danger); }
+.badge-orange  { background: rgba(255,159,10,0.12); color: var(--warning); }
+
+/* ============================================
+   LOGIN CONTAINER
+   ============================================ */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 110px);
+    padding: 24px;
+}
+
+/* ============================================
+   SCROLLBAR — limpia
+   ============================================ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--text-tertiary); border-radius: 4px; }
+
+/* ============================================
+   ANIMACIÓN DE ENTRADA
+   ============================================ */
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.card, #app-content > * {
+    animation: fadeUp 0.3s var(--ease) both;
+}
+
+/* ============================================
+   UTILIDADES
+   ============================================ */
+.text-accent    { color: var(--accent) !important; }
+.text-success   { color: var(--success) !important; }
+.text-danger    { color: var(--danger) !important; }
+.text-muted     { color: var(--text-secondary) !important; }
+.text-tertiary  { color: var(--text-tertiary) !important; }
+.fw-600         { font-weight: 600; }
+.mt-4           { margin-top: 4px; }
+.mt-8           { margin-top: 8px; }
+.mt-16          { margin-top: 16px; }

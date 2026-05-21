@@ -45,24 +45,25 @@ async function cerrarSesion() {
 window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
-// Lógica de Modo Oscuro Automático/Manual
+// Tema — gestionado desde index.html (toggle iOS).
+// Esta función sincroniza el checkbox si la app cambia el tema programáticamente.
 function aplicarModo() {
-    const hora = new Date().getHours();
-    const esNoche = hora >= 19 || hora < 7;
-    const modoGuardado = localStorage.getItem('theme');
-    
-    if (modoGuardado === 'dark' || (!modoGuardado && esNoche)) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-    }
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = saved === 'dark' || (!saved && prefersDark);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle) toggle.checked = isDark;
 }
 
+// Mantener compatibilidad si algún módulo llama toggleTheme()
 window.toggleTheme = () => {
     const current = document.documentElement.getAttribute('data-theme');
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle) toggle.checked = (next === 'dark');
 };
 
 // ==========================================
