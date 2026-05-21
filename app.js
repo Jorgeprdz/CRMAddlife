@@ -1,4 +1,4 @@
-// app.js - Núcleo de la aplicación
+// app.js - Núcleo unificado de la aplicación
 import { renderDashboard, bindDashboardEvents } from './dashboard.js';
 import { renderProspeccion, bindProspeccionEvents } from './prospeccion.js';
 import { renderReferidos, bindReferidosEvents } from './referidos.js';
@@ -23,18 +23,18 @@ function inicializarSupabase() {
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN GLOBAL BLINDADA
+// 2. AUTENTICACIÓN DINÁMICA DE ENTORNO
 // ==========================================
-window.loginConGoogle = async function() {
+async function loginConGoogle() {
     if (!supabase) {
         alert('Error: El cliente de base de datos no está listo.');
         return;
     }
     try {
-        // Dirección de producción obligatoria por defecto
+        // Dirección de producción dura por defecto
         let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
         
-        // Detección estricta de entorno local de desarrollo
+        // Si detecta que estás desarrollando en red local (Acode / Localhost)
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             urlRedireccion = window.location.origin + window.location.pathname;
         }
@@ -54,13 +54,17 @@ window.loginConGoogle = async function() {
     }
 }
 
-window.cerrarSesion = async function() {
+async function cerrarSesion() {
     if (supabase) await supabase.auth.signOut();
     window.location.reload();
 }
 
+// Exportamos de forma nativa para que sea visible por el resto de tus archivos .js
+window.loginConGoogle = loginConGoogle;
+window.cerrarSesion = cerrarSesion;
+
 // ==========================================
-// 3. GEMINI IA — Modelo de Producción
+// 3. GEMINI IA — Modelo Válido de Producción
 // ==========================================
 const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
 
@@ -180,10 +184,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (contentArea) {
             contentArea.innerHTML = renderLoginScreen();
             
-            // Inyección del evento directamente al nodo del DOM para evitar fallas de aislamiento
+            // Corrección quirúrgica: Invocamos la función local real que ya existe
             const loginBtn = document.getElementById('btn-google-login');
             if (loginBtn) {
-                loginBtn.addEventListener('click', window.loginConGoogle);
+                loginBtn.addEventListener('click', loginConGoogle);
             }
         }
     } else {
