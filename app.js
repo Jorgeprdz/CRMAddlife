@@ -22,26 +22,18 @@ function inicializarSupabase() {
 }
 
 // ==========================================
-// 2. AUTENTICACIÓN DINÁMICA
+// 2. AUTENTICACIÓN SEGURA
 // ==========================================
 async function loginConGoogle() {
-    if (!supabase) {
-        alert('Error: El cliente de base de datos no está listo.');
-        return;
-    }
+    if (!supabase) return;
     try {
-        // Con el comodín (*) configurado en Supabase, 
-        // pasamos la URL actual y será aceptada automáticamente.
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: { 
-                redirectTo: window.location.origin + window.location.pathname
-            }
+            options: { redirectTo: window.location.origin + window.location.pathname }
         });
         if (error) throw error;
     } catch (error) {
-        console.error('Error en autenticación:', error.message);
-        alert('No se pudo iniciar sesión: ' + error.message);
+        alert('Error en login: ' + error.message);
     }
 }
 
@@ -50,49 +42,48 @@ async function cerrarSesion() {
     window.location.reload();
 }
 
-// Exposición global para los botones
 window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
 // ==========================================
-// 3. GEMINI IA
+// 3. GEMINI IA — VÍA EDGE FUNCTION (SEGURO)
 // ==========================================
-const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
-
 export async function callGemini(promptText, outputElementId) {
     const output = document.getElementById(outputElementId);
     if (output) output.innerText = 'Procesando con IA...';
 
     try {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-            }
-        );
+        // Tu URL de Edge Function protegida
+        const functionUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co/functions/v1/gemini-proxy';
+
+        const res = await fetch(functionUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: promptText })
+        });
+
         const data = await res.json();
+
         if (data.candidates && data.candidates.length > 0) {
             if (output) output.innerText = data.candidates[0].content.parts[0].text;
         } else {
-            if (output) output.innerText = 'Error API';
+            if (output) output.innerText = 'Error API: ' + (data.error?.message || 'Respuesta vacía');
         }
     } catch (err) {
-        if (output) output.innerText = 'Error de conexión';
+        if (output) output.innerText = 'Error de conexión: ' + err.message;
     }
 }
 window.callGemini = callGemini;
 
 // ==========================================
-// 4. LOGIN SCREEN
+// 4. INTERFAZ Y NAVEGACIÓN
 // ==========================================
 function renderLoginScreen() {
     return `
         <div class="login-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center;">
             <div class="card" style="padding: 2.5rem; border-radius: 16px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%;">
                 <h1>CRM Addlife</h1>
-                <p>Ecosistema Privado de Asesoría</p>
+                <p>Ecosistema Privado</p>
                 <button id="btn-google-login" style="width: 100%; padding: 14px; border-radius: 8px; border: none; background: #fff; cursor: pointer;">
                     Continuar con Google
                 </button>
@@ -101,9 +92,6 @@ function renderLoginScreen() {
     `;
 }
 
-// ==========================================
-// 5. NAVEGACIÓN GLOBAL
-// ==========================================
 window.navigateTo = function(moduleName) {
     const contentArea = document.getElementById('app-content');
     if (!contentArea) return;
@@ -123,7 +111,7 @@ window.navigateTo = function(moduleName) {
 };
 
 // ==========================================
-// 6. ARRANQUE
+// 5. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     document.body.addEventListener('click', (e) => {
