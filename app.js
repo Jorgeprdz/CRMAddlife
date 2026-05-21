@@ -16,7 +16,7 @@ let supabase = null;
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        console.log('Supabase conectado de forma segura.');
+        console.log('Supabase inicializado correctamente.');
         return true;
     }
     return false;
@@ -58,11 +58,12 @@ async function cerrarSesion() {
     window.location.reload();
 }
 
+// Exposición global para romper acoplamientos circulares de módulos
 window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
 // ==========================================
-// 3. GEMINI IA — Modelo Válido de Producción
+// 3. GEMINI IA — MÓDULO DE INTEGRACIÓN
 // ==========================================
 const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
 
@@ -92,8 +93,10 @@ export async function callGemini(promptText, outputElementId) {
     }
 }
 
+window.callGemini = callGemini;
+
 // ==========================================
-// 4. PANTALLA DE LOGIN
+// 4. INTERFAZ VISUAL DE ACCESO
 // ==========================================
 function renderLoginScreen() {
     return `
@@ -111,7 +114,7 @@ function renderLoginScreen() {
 }
 
 // ==========================================
-// 5. NAVEGACIÓN GLOBAL
+// 5. CONTROLADOR DE NAVEGACIÓN GLOBAL
 // ==========================================
 window.navigateTo = function(moduleName) {
     const contentArea = document.getElementById('app-content');
@@ -148,12 +151,11 @@ window.navigateTo = function(moduleName) {
 };
 
 // ==========================================
-// 6. ARRANQUE Y ASIGNACIÓN DE EVENTOS NATIVOS
+// 6. CICLO DE VIDA Y ASIGNACIÓN DE EVENTOS
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Escuchador global de clics (Menú lateral y Botón de Login juntos)
+    // Delegación estructural de eventos del ratón
     document.body.addEventListener('click', (e) => {
-        // Manejo del menú lateral
         const navBtn = e.target.closest('.nav-btn');
         if (navBtn) {
             const target = navBtn.getAttribute('data-target');
@@ -161,10 +163,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Manejo del botón de Login (Delegación total blindada)
         const loginBtn = e.target.closest('#btn-google-login');
         if (loginBtn) {
-            loginConGoogle();
+            window.loginConGoogle();
         }
     });
 
