@@ -16,7 +16,7 @@ let supabase = null;
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        console.log('Supabase conectado.');
+        console.log('Supabase conectado de forma segura.');
         return true;
     }
     return false;
@@ -31,11 +31,11 @@ async function loginConGoogle() {
         return;
     }
     try {
-        // Dirección de producción dura por defecto
+        // CORRECCIÓN INTEGRAL DE INFRAESTRUCTURA: Detección estricta y real
         let urlRedireccion = 'https://jorgeprdz.github.io/CRMAddlife/';
         
-        // Si detecta que estás desarrollando en red local (Acode / Localhost)
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        const host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.')) {
             urlRedireccion = window.location.origin + window.location.pathname;
         }
 
@@ -59,7 +59,7 @@ async function cerrarSesion() {
     window.location.reload();
 }
 
-// Exportamos de forma nativa para que sea visible por el resto de tus archivos .js
+// Vinculación explícita al entorno global
 window.loginConGoogle = loginConGoogle;
 window.cerrarSesion = cerrarSesion;
 
@@ -184,7 +184,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (contentArea) {
             contentArea.innerHTML = renderLoginScreen();
             
-            // Corrección quirúrgica: Invocamos la función local real que ya existe
             const loginBtn = document.getElementById('btn-google-login');
             if (loginBtn) {
                 loginBtn.addEventListener('click', loginConGoogle);
