@@ -69,7 +69,12 @@ export function bindProspeccionEvents() {
         const producto = document.getElementById('p-producto').value || 'Seguros';
         const contexto = document.getElementById('p-contexto').value || 'Sin contexto';
 
-        const prompt = `Genera UN ÚNICO mensaje de WhatsApp para ${nombre} (Origen: ${fuente}, Interés: ${producto}, Contexto: ${contexto}). El tono debe ser estrictamente: ${estilo}. Objetivo: Conseguir una cita. REGLA INQUEBRANTABLE: Escribe ÚNICAMENTE el texto exacto para enviar. Cero introducciones, cero explicaciones, cero opciones extra, cero despedidas tuyas. Solo el mensaje listo para copiar.`;
+        // PROMPT INYECTADO CON TU IDENTIDAD
+        const prompt = `Actúa como Jorge Palacios, un asesor experto y estratega en finanzas personales de Seguros Monterrey New York Life con 5 años de experiencia. 
+        Genera UN ÚNICO mensaje de WhatsApp persuasivo, directo y utilizando storytelling para ${nombre} (Origen del contacto: ${fuente}, Interés principal: ${producto}, Contexto: ${contexto}). 
+        El estilo debe ser estrictamente: ${estilo}. 
+        Evita por completo sonar como un "vendedor de seguros tradicional" o usar frases trilladas. Tu objetivo es despertar curiosidad genuina y conseguir una cita breve. 
+        REGLA INQUEBRANTABLE: Escribe ÚNICAMENTE el texto exacto para enviar por WhatsApp. Cero introducciones, cero explicaciones previas, cero confirmaciones de que entendiste la orden. Solo el texto.`;
 
         callGemini(prompt, 'out-acercamiento');
     };
@@ -77,8 +82,17 @@ export function bindProspeccionEvents() {
     document.getElementById('btn-objecion').addEventListener('click', () => {
         const objecion = document.getElementById('p-objecion').value;
         if (!objecion) return;
-        callGemini(`El prospecto respondió: "${objecion}". Genera ÚNICAMENTE la respuesta de WhatsApp para debatir la objeción y buscar la cita. Cero introducciones, explicaciones ni opciones. Solo el texto crudo.`, 'out-objecion-mensaje');
-        callGemini(`El prospecto respondió: "${objecion}". Realiza un análisis psicológico rápido y danos viñetas de cómo rebatirlo.`, 'out-objecion-analisis');
+        
+        // PROMPT PARA MANEJO DE OBJECIÓN (TEXTO)
+        const promptMensaje = `Actúa como  asesor top de Seguros Monterrey. El prospecto te dio esta objeción para no darte la cita: "${objecion}". 
+        Genera ÚNICAMENTE la respuesta de WhatsApp para manejar esta objeción de forma empática pero muy firme, usando técnica de venta consultiva para darle la vuelta y conseguir la reunión. 
+        REGLA: Cero introducciones, explicaciones ni saludos innecesarios. Solo el texto crudo listo para copiar y enviar.`;
+        callGemini(promptMensaje, 'out-objecion-mensaje');
+        
+        // PROMPT PARA ANÁLISIS PSICOLÓGICO INTERNO
+        const promptAnalisis = `Actúa como estratega comercial de seguros. Un prospecto acaba de lanzar esta objeción: "${objecion}". 
+        Haz un análisis psicológico rápido, brutal y honesto de lo que REALMENTE significa esa objeción (miedo, falta de liquidez, excusa educada, etc.) y dame 3 viñetas tácticas y agresivas de cómo rebatirla cuando lo tenga enfrente.`;
+        callGemini(promptAnalisis, 'out-objecion-analisis');
     });
 
     document.getElementById('btn-agendar-obj').addEventListener('click', () => {
