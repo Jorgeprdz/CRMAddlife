@@ -11,7 +11,6 @@
     --text-secondary: #6e6e73;
     --text-tertiary:  #aeaeb2;
     --accent:       #007AFF;
-    --accent-soft:  rgba(0, 122, 255, 0.12);
     --danger:       #FF3B30;
     --separator:    rgba(60, 60, 67, 0.12);
 
@@ -20,7 +19,7 @@
     --blur-bg-nav:      rgba(255, 255, 255, 0.78);
     --blur-strength:    saturate(180%) blur(22px);
 
-    /* Radios y sombras */
+    /* Sombras y Radios */
     --radius-card:  22px;
     --radius-pill:  100px;
     --shadow-card:  0 2px 16px rgba(0,0,0,0.06);
@@ -40,7 +39,6 @@
     --blur-bg-nav:   rgba(38, 38, 40, 0.80);
 }
 
-/* ---- RESET ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -64,7 +62,40 @@ body {
     border-bottom: 1px solid var(--separator);
 }
 
-/* ---- CARDS ---- */
+/* ---- SWITCH DESLIZANTE (ONE UI STYLE) ---- */
+.ios-toggle-wrap { display: flex; align-items: center; gap: 10px; }
+.toggle-icon { font-size: 14px; color: var(--text-tertiary); user-select: none; }
+
+.ios-toggle {
+    position: relative;
+    width: 51px; height: 31px;
+    cursor: pointer;
+}
+
+.ios-toggle input { opacity: 0; width: 0; height: 0; }
+
+.ios-toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-pill);
+    background: #d1d1d6;
+    transition: background var(--dur) ease;
+}
+
+.ios-toggle-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 27px; height: 27px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.22);
+    transition: transform var(--dur) ease;
+}
+
+.ios-toggle input:checked + .ios-toggle-track { background: var(--accent); }
+.ios-toggle input:checked ~ .ios-toggle-thumb { transform: translateX(20px); }
+
+/* ---- CARDS & UI ---- */
 .card {
     background: var(--surface) !important;
     border-radius: var(--radius-card) !important;
@@ -74,19 +105,17 @@ body {
     border: 1px solid var(--separator);
 }
 
-/* ---- BOTONES Y INPUTS ---- */
-button, input, select, textarea {
+button {
     border-radius: 14px !important;
     padding: 14px 20px !important;
-    border: 1px solid var(--separator);
-    font-size: 15px; font-family: inherit;
-    background: var(--surface-2); color: var(--text-primary);
+    border: none;
+    font-size: 15px; font-weight: 500; font-family: inherit;
+    cursor: pointer;
 }
 
-.btn-primary { background: var(--accent) !important; color: #fff !important; border: none; }
-.btn-secondary { border: 1px solid var(--separator) !important; }
+.btn-primary { background: var(--accent) !important; color: #fff !important; }
 
-/* ---- NAVEGACIÓN FLOTANTE ---- */
+/* ---- NAV FLOTANTE ---- */
 .bottom-nav {
     display: flex; position: fixed; bottom: 20px;
     left: 50%; transform: translateX(-50%);
@@ -104,20 +133,8 @@ button, input, select, textarea {
     flex: 1; display: flex; flex-direction: column; align-items: center;
     background: transparent !important; border: none !important;
     color: var(--text-tertiary); font-size: 10px; font-weight: 500;
-    padding: 8px 4px !important;
 }
 
 .nav-btn .icon { font-size: 22px; margin-bottom: 2px; }
 .nav-btn.active { color: var(--accent); }
 .nav-btn-logout { color: var(--danger) !important; }
-
-/* ---- TOGGLE IOS ---- */
-.ios-toggle { position: relative; width: 51px; height: 31px; cursor: pointer; }
-.ios-toggle input { opacity: 0; }
-.ios-toggle-track { position: absolute; inset: 0; border-radius: 50px; background: #d1d1d6; transition: 0.3s; }
-.ios-toggle input:checked + .ios-toggle-track { background: var(--accent); }
-.ios-toggle-thumb { 
-    position: absolute; top: 2px; left: 2px; width: 27px; height: 27px;
-    border-radius: 50%; background: #fff; transition: 0.3s;
-}
-.ios-toggle input:checked ~ .ios-toggle-thumb { transform: translateX(20px); }
