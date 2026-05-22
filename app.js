@@ -286,27 +286,100 @@ window.navigateTo = function(moduleName) {
 };
 
 // ==========================================
-// 8. DARK MODE
+// 8. SISTEMA DE TEMAS — selector + dark/light
 // ==========================================
+
+// Temas que soportan toggle dark/light
+const TEMAS_CON_TOGGLE = ['oneui', 'slate'];
+
+// Clases CSS que cada tema aplica al body
+const TEMA_CLASES = {
+    oneui:    [],
+    material: ['theme-material'],
+    slate:    ['theme-slate'],
+    aurora:   ['theme-aurora'],
+};
+
+function aplicarTema(tema, dark) {
+    // 1. Limpiar todas las clases de tema anteriores
+    document.body.classList.remove('theme-material', 'theme-slate', 'theme-aurora', 'dark');
+
+    // 2. Aplicar clases del nuevo tema
+    TEMA_CLASES[tema]?.forEach(cls => document.body.classList.add(cls));
+
+    // 3. Dark mode solo en temas que lo soportan
+    const toggle        = document.getElementById('theme-toggle');
+    const toggleWrapper = document.getElementById('toggle-wrapper');
+    const icon          = document.getElementById('theme-icon');
+    const meta          = document.getElementById('meta-theme-color');
+
+    const soportaDark = TEMAS_CON_TOGGLE.includes(tema);
+
+    if (toggleWrapper) {
+        toggleWrapper.classList.toggle('toggle-hidden', !soportaDark);
+    }
+
+    if (tema === 'aurora') {
+        // Aurora: siempre oscuro
+        document.body.classList.add('dark');
+        if (meta) meta.setAttribute('content', '#080C14');
+    } else if (tema === 'material') {
+        // Material: siempre claro
+        if (meta) meta.setAttribute('content', '#FFFBFE');
+    } else if (soportaDark) {
+        const isDark = dark ?? (localStorage.getItem('dark') === 'true');
+        document.body.classList.toggle('dark', isDark);
+        if (toggle) toggle.checked = isDark;
+        if (icon)   icon.textContent = isDark ? '🌙' : '☀️';
+        if (meta)   meta.setAttribute('content', isDark ? '#0A0A0F' : tema === 'slate' ? '#F8F9FA' : '#F2F2F7');
+    }
+
+    // 4. Marcar dot activo
+    document.querySelectorAll('.theme-dot').forEach(dot => {
+        dot.classList.toggle('active', dot.dataset.theme === tema);
+    });
+
+    // 5. Persistir
+    localStorage.setItem('tema', tema);
+}
+
 function iniciarDarkMode() {
     const toggle = document.getElementById('theme-toggle');
     const icon   = document.getElementById('theme-icon');
     const meta   = document.getElementById('meta-theme-color');
-    if (!toggle) return;
 
-    const aplicarTema = (dark) => {
-        document.body.classList.toggle('dark', dark);
-        if (icon) icon.textContent = dark ? '🌙' : '☀️';
-        if (meta) meta.setAttribute('content', dark ? '#0A0A0F' : '#F2F2F7');
-        localStorage.setItem('theme', dark ? 'dark' : 'light');
-    };
+    // Recuperar preferencias guardadas
+    const temaGuardado = localStorage.getItem('tema') || 'oneui';
+    const darkGuardado = localStorage.getItem('dark') === 'true';
 
-    if (localStorage.getItem('theme') === 'dark') {
-        toggle.checked = true;
-        aplicarTema(true);
-    }
+    // Aplicar tema inicial
+    aplicarTema(temaGuardado, darkGuardado);
 
-    toggle.addEventListener('change', () => aplicarTema(toggle.checked));
+    // Toggle dark/light
+    toggle?.addEventListener('change', () => {
+        const isDark = toggle.checked;
+        localStorage.setItem('dark', isDark);
+        document.body.classList.toggle('dark', isDark);
+        if (icon) icon.textContent = isDark ? '🌙' : '☀️';
+
+        const temaActual = localStorage.getItem('tema') || 'oneui';
+        if (meta) {
+            meta.setAttribute('content',
+                isDark
+                    ? '#0A0A0F'
+                    : temaActual === 'slate' ? '#F8F9FA' : '#F2F2F7'
+            );
+        }
+    });
+
+    // Selector de temas — dots
+    document.querySelectorAll('.theme-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+            const tema = dot.dataset.theme;
+            const isDark = localStorage.getItem('dark') === 'true';
+            aplicarTema(tema, isDark);
+        });
+    });
 }
 
 // ==========================================

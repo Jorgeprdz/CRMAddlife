@@ -18,8 +18,16 @@
     <header class="top-bar nav-oculto" id="main-header">
         <span class="top-bar__title" id="header-title">CRM Addlife</span>
         <div class="top-bar__right">
-            <!-- TOGGLE DARK/LIGHT iOS -->
-            <label class="theme-switch" title="Modo oscuro">
+            <!-- Selector de temas -->
+            <div class="theme-selector" id="theme-selector">
+                <div class="theme-dot active" data-theme="oneui"    title="One UI"></div>
+                <div class="theme-dot"        data-theme="material" title="Material You"></div>
+                <div class="theme-dot"        data-theme="slate"    title="Slate"></div>
+                <div class="theme-dot"        data-theme="aurora"   title="Aurora"></div>
+            </div>
+            <div class="top-bar__divider"></div>
+            <!-- Toggle dark/light -->
+            <label class="theme-switch" id="toggle-wrapper" title="Modo oscuro">
                 <input type="checkbox" id="theme-toggle">
                 <span class="theme-switch__track">
                     <span class="theme-switch__thumb">
