@@ -1,11 +1,13 @@
 // db.js - Motor de Base de Datos Cloud (Supabase)
+import { getSupabase } from './app.js';
 
 export const DB = {
     guardar: async (coleccion, datos) => {
-        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        const sb = getSupabase();
+        const { data: { user } } = await sb.auth.getUser();
         if (!user) return false;
 
-        const { error } = await window.supabaseClient.from('crm_data').insert([{
+        const { error } = await sb.from('crm_data').insert([{
             id: datos.id,
             user_id: user.id,
             coleccion: coleccion,
@@ -16,20 +18,22 @@ export const DB = {
     },
 
     obtenerTodos: async (coleccion) => {
-        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        const sb = getSupabase();
+        const { data: { user } } = await sb.auth.getUser();
         if (!user) return [];
 
-        const { data, error } = await window.supabaseClient.from('crm_data')
+        const { data, error } = await sb.from('crm_data')
             .select('datos')
             .eq('user_id', user.id)
             .eq('coleccion', coleccion);
-            
+
         if (error) throw error;
         return data ? data.map(row => row.datos) : [];
     },
 
     eliminar: async (coleccion, id) => {
-        const { error } = await window.supabaseClient.from('crm_data')
+        const sb = getSupabase();
+        const { error } = await sb.from('crm_data')
             .delete()
             .eq('id', id);
         if (error) throw error;
@@ -37,20 +41,20 @@ export const DB = {
     },
 
     actualizar: async (coleccion, id, nuevosDatos) => {
-        // Obtenemos los datos actuales para fusionarlos
-        const { data, error: errGet } = await window.supabaseClient.from('crm_data')
+        const sb = getSupabase();
+        const { data, error: errGet } = await sb.from('crm_data')
             .select('datos')
             .eq('id', id)
             .single();
-            
+
         if (errGet || !data) return false;
 
         const registroActualizado = { ...data.datos, ...nuevosDatos };
-        
-        const { error: errUpdate } = await window.supabaseClient.from('crm_data')
+
+        const { error: errUpdate } = await sb.from('crm_data')
             .update({ datos: registroActualizado })
             .eq('id', id);
-            
+
         if (errUpdate) throw errUpdate;
         return true;
     }

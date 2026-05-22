@@ -1,5 +1,6 @@
 // dashboard.js
 import { DB } from './db.js';
+import { getSupabase } from './app.js';
 
 export function renderDashboard() {
     return `<div id=\"dashboard-container\" style=\"display: flex; flex-direction: column; gap: 15px;\">\n                <div style=\"text-align: center; color: #8E8E93; padding: 20px;\">Cargando tu inteligencia de negocio...</div>\n            </div>`;
@@ -15,18 +16,18 @@ export async function bindDashboardEvents() {
     if (hora >= 5 && hora < 12) saludo = 'Buenos días';
     else if (hora >= 12 && hora < 19) saludo = 'Buenas tardes';
 
-    // 2. Extraer el primer nombre real desde la instancia global de Supabase
+    // 2. Extraer el primer nombre real desde Supabase Auth
     let nombreUsuario = 'Asesor';
     try {
-        const client = window.supabaseClient; // Lee la sesión expuesta en app.js
+        const client = getSupabase();
         if (client) {
             const { data: { user } } = await client.auth.getUser();
-            if (user && user.user_metadata && user.user_metadata.full_name) {
-                nombreUsuario = user.user_metadata.full_name.split(' ')[0]; // Extrae el primer nombre
+            if (user?.user_metadata?.full_name) {
+                nombreUsuario = user.user_metadata.full_name.split(' ')[0];
             }
         }
     } catch (err) {
-        console.error("Error al recuperar el nombre de Google Auth:", err);
+        console.error("Error al recuperar nombre:", err);
     }
 
     // 3. Cálculos de actividad (Semana laboral de lunes a viernes)
