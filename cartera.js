@@ -1,10 +1,12 @@
 // cartera.js
 import { DB } from './db.js';
 
+let idEdicionActual = null;
+
 export function renderCartera() {
     return `
         <div class="card">
-            <h2>Alta de Póliza</h2>
+            <h2 id="formulario-titulo">Alta de Póliza</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <input id="c-cliente" placeholder="Nombre del Cliente" style="grid-column: span 2;">
                 <input id="c-poliza" placeholder="Número de Póliza">
@@ -27,168 +29,297 @@ export function renderCartera() {
                     <option value="">Conducto de Cobro...</option>
                     <option value="Tarjeta de Crédito">Tarjeta de Crédito</option>
                     <option value="Tarjeta de Débito">Tarjeta de Débito</option>
-                    <option value="Pago Directo">Pago Directo (Ficha)</option>
+                    <option value="Pago Ventanilla / Transferencia">Ventanilla / Transferencia</option>
                 </select>
 
-                <input id="c-prima" type="number" placeholder="Prima Anualizada ($ MXN)">
+                <input id="c-prima" type="number" placeholder="Prima Anual ($)">
                 <input id="c-suma" type="number" placeholder="Suma Asegurada ($)">
-
-                <div style="grid-column: span 2;">
-                    <label style="font-size: 12px; color: #8E8E93; font-weight: bold;">FECHA DEL PRÓXIMO PAGO:</label>
-                    <input type="date" id="c-fecha" style="width: 100%; margin-top: 5px;">
+                
+                <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Próxima Fecha de Pago</label>
+                    <input id="c-fecha" type="date">
                 </div>
+
+                <button id="btn-guardar-cartera" class="btn-primary" style="grid-column: span 2; margin-top: 10px;">💾 Guardar Póliza</button>
+                <button id="btn-cancelar-edicion" class="btn-secondary" style="grid-column: span 2; display: none;">❌ Cancelar Edición</button>
             </div>
-            <button id="btn-guardar-poliza" class="btn-primary" style="margin-top: 15px; background: #007AFF;">💾 Guardar Póliza</button>
         </div>
 
-        <div class="card" style="background: #1C1C1E; color: white;">
-            <h2 style="color: white; margin-bottom: 15px;">Dashboard de Cobranza</h2>
-            <div id="dashboard-semaforo" style="display: grid; gap: 10px;"></div>
+        <div class="card" style="border: 2px dashed var(--separator); background: transparent;">
+            <h2>Mantenimiento de Información</h2>
+            <p style="font-size: 13px; margin-bottom: 15px; color: var(--text-secondary);">Administra la base de datos de tus asegurados multidispositivo.</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
+                <button id="btn-trigger-excel" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    📥 Importar Excel
+                </button>
+                <button id="btn-exportar-excel" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--accent); border-color: var(--accent);">
+                    📤 Exportar Cartera
+                </button>
+            </div>
         </div>
 
         <div class="card">
-            <h2>Directorio de Clientes</h2>
-            <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
-                <input id="filtro-cliente" placeholder="🔍 Buscar cliente o póliza..." style="flex: 2; min-width: 150px; padding: 10px; border-radius: 8px; border: 1px solid #E5E5EA;">
-                <select id="filtro-estado" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #E5E5EA; font-weight: bold;">
-                    <option value="Todos">Todos los Estados</option>
-                    <option value="Rojo">🔴 Vencidas</option>
-                    <option value="Naranja">🟠 Próximos 30 días</option>
-                    <option value="Amarillo">🟡 Próximos 60 días</option>
-                    <option value="Verde">🟢 Al corriente</option>
-                </select>
+            <h2>Listado de Cartera Vigente</h2>
+            <div id="lista-cartera-container" style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+                <div style="text-align: center; color: var(--text-tertiary); padding: 10px;">Cargando registros comerciales...</div>
             </div>
-            <div id="lista-cartera" style="display: grid; gap: 12px;"></div>
         </div>
     `;
 }
 
 export async function bindCarteraEvents() {
-    await window.renderListasCartera();
+    // Inyección de la librería externa para manejo de libros Excel sin romper dependencias
+    if (!window.XLSX) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        document.head.appendChild(script);
+    }
 
-    const btnGuardar = document.getElementById('btn-guardar-poliza');
-    btnGuardar.replaceWith(btnGuardar.cloneNode(true));
+    const btnGuardar = document.getElementById('btn-guardar-cartera');
+    const btnCancelar = document.getElementById('btn-cancelar-edicion');
+    const btnExcelTrigger = document.getElementById('btn-trigger-excel');
+    const btnExportar = document.getElementById('btn-exportar-excel');
+    const fileInput = document.getElementById('excel-file-input');
 
-    document.getElementById('btn-guardar-poliza').addEventListener('click', async () => {
-        const cliente = document.getElementById('c-cliente').value;
-        const poliza = document.getElementById('c-poliza').value;
-        const fecha = document.getElementById('c-fecha').value;
+    if (btnGuardar) btnGuardar.addEventListener('click', guardarOActualizarPoliza);
+    if (btnCancelar) btnCancelar.addEventListener('click', limpiarFormularioCartera);
+    if (btnExcelTrigger) btnExcelTrigger.addEventListener('click', () => fileInput.click());
+    if (btnExportar) btnExportar.addEventListener('click', exportarCarteraCompleta);
+    if (fileInput) fileInput.addEventListener('change', procesarArchivoExcel);
 
-        if (!cliente || !poliza || !fecha) return alert('Cliente, Póliza y Fecha de Próximo Pago son obligatorios.');
-
-        const nuevaPoliza = {
-            id: Date.now().toString(),
-            cliente,
-            poliza,
-            plan: document.getElementById('c-plan').value,
-            formaPago: document.getElementById('c-forma-pago').value,
-            conductoCobro: document.getElementById('c-cobro').value,
-            prima: parseFloat(document.getElementById('c-prima').value) || 0,
-            suma: parseFloat(document.getElementById('c-suma').value) || 0,
-            fechaPago: fecha
-        };
-
-        await DB.guardar('cartera', nuevaPoliza);
-
-        document.querySelectorAll('input').forEach(i => i.value = '');
-        document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
-
-        await window.renderListasCartera();
-        alert('Póliza guardada en cartera.');
-    });
-
-    document.getElementById('filtro-cliente').addEventListener('input', window.renderListasCartera);
-    document.getElementById('filtro-estado').addEventListener('change', window.renderListasCartera);
+    await actualizarListadoCartera();
 }
 
-function evaluarSemaforo(fechaString) {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const fPago = new Date(fechaString + 'T12:00:00');
-    const diasDiferencia = Math.ceil((fPago - hoy) / (1000 * 60 * 60 * 24));
+// ---- CONTROL DE DATOS ----
+async function guardarOActualizarPoliza() {
+    const cliente = document.getElementById('c-cliente').value.trim();
+    const poliza = document.getElementById('c-poliza').value.trim();
+    const plan = document.getElementById('c-plan').value;
+    const formaPago = document.getElementById('c-forma-pago').value;
+    const conductoCobro = document.getElementById('c-cobro').value;
+    const prima = document.getElementById('c-prima').value;
+    const suma = document.getElementById('c-suma').value;
+    const fechaPago = document.getElementById('c-fecha').value;
 
-    if (diasDiferencia < 0) return { estado: 'Rojo', color: '#FF3B30', bg: '#FFEBEA', icon: '🔴', texto: `Vencida hace ${Math.abs(diasDiferencia)} días` };
-    if (diasDiferencia <= 30) return { estado: 'Naranja', color: '#FF9500', bg: '#FFF5E5', icon: '🟠', texto: `Pago en ${diasDiferencia} días` };
-    if (diasDiferencia <= 60) return { estado: 'Amarillo', color: '#FFCC00', bg: '#FFFBEA', icon: '🟡', texto: `Pago en ${diasDiferencia} días` };
-    return { estado: 'Verde', color: '#34C759', bg: '#E5FDEB', icon: '🟢', texto: `Pago cubierto (${diasDiferencia} días)` };
-}
-
-const formatearDinero = (cant) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cant);
-
-window.renderListasCartera = async () => {
-    const db = await DB.obtenerTodos('cartera');
-
-    const dashboard = document.getElementById('dashboard-semaforo');
-    const criticos = db.map(p => ({ ...p, semaforo: evaluarSemaforo(p.fechaPago) }))
-        .filter(p => p.semaforo.estado === 'Rojo' || p.semaforo.estado === 'Naranja')
-        .sort((a, b) => new Date(a.fechaPago) - new Date(b.fechaPago));
-
-    if (criticos.length === 0) {
-        dashboard.innerHTML = `<div style="text-align: center; color: #34C759; padding: 10px;">🟢 ¡Excelente! No hay pagos vencidos ni próximos a vencer.</div>`;
-    } else {
-        dashboard.innerHTML = criticos.map(p => `
-            <div style="background: ${p.semaforo.bg}; border-left: 5px solid ${p.semaforo.color}; padding: 12px; border-radius: 8px; color: #1C1C1E; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h4 style="margin: 0; font-size: 14px;">${p.cliente}</h4>
-                    <span style="font-size: 11px; font-weight: bold; color: ${p.semaforo.color};">${p.semaforo.icon} ${p.semaforo.texto}</span>
-                </div>
-                <div style="text-align: right;">
-                    <span style="font-size: 12px; display: block; color: #666;">${p.formaPago} - ${p.conductoCobro}</span>
-                    <button onclick="window.open('https://wa.me/?text=${encodeURIComponent(`Hola ${p.cliente}, te recuerdo que el pago de tu póliza ${p.poliza} está próximo/vencido. Quedo a tus órdenes.`)}')" style="background: #25D366; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-top: 4px;">📲 Cobrar WA</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    const contenedorLista = document.getElementById('lista-cartera');
-    const filtroTexto = document.getElementById('filtro-cliente').value.toLowerCase();
-    const filtroEstado = document.getElementById('filtro-estado').value;
-
-    let filtrados = db.map(p => ({ ...p, semaforo: evaluarSemaforo(p.fechaPago) }));
-
-    if (filtroTexto) {
-        filtrados = filtrados.filter(p => p.cliente.toLowerCase().includes(filtroTexto) || p.poliza.toLowerCase().includes(filtroTexto));
-    }
-    if (filtroEstado !== 'Todos') {
-        filtrados = filtrados.filter(p => p.semaforo.estado === filtroEstado);
-    }
-
-    if (filtrados.length === 0) {
-        contenedorLista.innerHTML = `<p style="text-align:center; color:gray;">No se encontraron pólizas.</p>`;
+    if (!cliente || !poliza || !fechaPago) {
+        alert('Por favor completa los datos clave: Cliente, Póliza y Fecha de Pago.');
         return;
     }
 
-    contenedorLista.innerHTML = filtrados.sort((a, b) => new Date(a.fechaPago) - new Date(b.fechaPago)).map(p => `
-        <div style="background: #F9F9FB; border: 1px solid #E5E5EA; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <h3 style="margin: 0; font-size: 16px; color: #1C1C1E;">${p.cliente}</h3>
-                    <span style="font-size: 12px; color: #007AFF; font-weight: bold;">Pol: ${p.poliza} | ${p.plan || 'N/A'}</span>
+    const datosPoliza = {
+        cliente,
+        poliza,
+        plan,
+        formaPago,
+        conductoCobro,
+        prima: Number(prima) || 0,
+        suma: Number(suma) || 0,
+        fechaPago
+    };
+
+    try {
+        if (idEdicionActual) {
+            await DB.actualizar('cartera', idEdicionActual, datosPoliza);
+            alert('Póliza modificada correctamente.');
+        } else {
+            datosPoliza.id = 'pol_' + Date.now();
+            await DB.guardar('cartera', datosPoliza);
+            alert('Póliza guardada con éxito.');
+        }
+        limpiarFormularioCartera();
+        await actualizarListadoCartera();
+    } catch (err) {
+        console.error(err);
+        alert('Error al procesar la operación en la nube.');
+    }
+}
+
+window.cargarPolizaParaEditar = async (id) => {
+    const listado = await DB.obtenerTodos('cartera');
+    const poliza = listado.find(p => p.id === id);
+    if (!poliza) return;
+
+    idEdicionActual = id;
+    document.getElementById('formulario-titulo').innerText = '✏️ Editando Póliza';
+    document.getElementById('c-cliente').value = poliza.cliente;
+    document.getElementById('c-poliza').value = poliza.poliza;
+    document.getElementById('c-plan').value = poliza.plan;
+    document.getElementById('c-forma-pago').value = poliza.formaPago;
+    document.getElementById('c-cobro').value = poliza.conductoCobro;
+    document.getElementById('c-prima').value = poliza.prima;
+    document.getElementById('c-suma').value = poliza.suma;
+    document.getElementById('c-fecha').value = poliza.fechaPago;
+
+    document.getElementById('btn-guardar-cartera').innerText = '🔄 Actualizar Datos';
+    document.getElementById('btn-cancelar-edicion').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+function limpiarFormularioCartera() {
+    idEdicionActual = null;
+    document.getElementById('formulario-titulo').innerText = 'Alta de Póliza';
+    document.getElementById('c-cliente').value = '';
+    document.getElementById('c-poliza').value = '';
+    document.getElementById('c-plan').value = '';
+    document.getElementById('c-forma-pago').value = '';
+    document.getElementById('c-cobro').value = '';
+    document.getElementById('c-prima').value = '';
+    document.getElementById('c-suma').value = '';
+    document.getElementById('c-fecha').value = '';
+
+    document.getElementById('btn-guardar-cartera').innerText = '💾 Guardar Póliza';
+    document.getElementById('btn-cancelar-edicion').style.display = 'none';
+}
+
+// ---- SISTEMA DE EXPORTACIÓN (BACKUP COMPLETO) ----
+async function exportarCarteraCompleta() {
+    try {
+        const registros = await DB.obtenerTodos('cartera');
+        if (registros.length === 0) {
+            alert('No hay pólizas en tu cartera para exportar.');
+            return;
+        }
+
+        // Mapeo estructurado para que el archivo de salida sea legible de inmediato
+        const matrizDatos = registros.map(p => ({
+            'Cliente': p.cliente,
+            'Número de Póliza': p.poliza,
+            'Ramo / Plan': p.plan,
+            'Forma de Pago': p.formaPago,
+            'Conducto de Cobro': p.conductoCobro,
+            'Prima Anual ($)': p.prima,
+            'Suma Asegurada ($)': p.suma,
+            'Próximo Vencimiento': p.fechaPago
+        }));
+
+        const hoja = XLSX.utils.json_to_sheet(matrizDatos);
+        const libro = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(libro, hoja, 'Cartera Vigente');
+
+        // Generar descarga nativa del navegador
+        XLSX.writeFile(libro, `Cartera_Addlife_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+        console.error(err);
+        alert('Ocurrió un fallo al intentar compilar el archivo Excel.');
+    }
+}
+
+// ---- SISTEMA DE IMPORTACIÓN ----
+function procesarArchivoExcel(e) {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+
+    const lector = new FileReader();
+    lector.onload = async (evt) => {
+        try {
+            const data = new Uint8Array(evt.target.result);
+            const libro = XLSX.read(data, { type: 'array' });
+            const primeraHoja = libro.SheetNames[0];
+            const filas = XLSX.utils.sheet_to_json(libro.Sheets[primeraHoja]);
+
+            let cargados = 0;
+            for (const fila of filas) {
+                const nuevaPoliza = {
+                    id: 'pol_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                    cliente: fila.Cliente || fila.cliente || 'Registro Importado',
+                    poliza: String(fila.Poliza || fila.poliza || Date.now()),
+                    plan: fila.Plan || fila.plan || 'Vida',
+                    formaPago: fila.FormaPago || fila.formapago || 'Anual',
+                    conductoCobro: fila.Conducto || fila.conducto || 'Tarjeta de Crédito',
+                    prima: Number(fila.Prima || fila.prima || 0),
+                    suma: Number(fila.Suma || fila.suma || 0),
+                    fechaPago: fila.FechaPago || fila.fechapago || new Date().toISOString().split('T')[0]
+                };
+                await DB.guardar('cartera', nuevaPoliza);
+                cargados++;
+            }
+            alert(`Sincronización en la nube exitosa. Se añadieron ${cargados} pólizas.`);
+            await actualizarListadoCartera();
+        } catch (err) {
+            console.error(err);
+            alert('Formato de archivo no reconocido. Asegúrate de estructurar el Excel correctamente.');
+        }
+    };
+    lector.readAsArrayBuffer(archivo);
+}
+
+// ---- INTERFAZ DE USUARIO (ONE UI 8.5) ----
+async function actualizarListadoCartera() {
+    const container = document.getElementById('lista-cartera-container');
+    if (!container) return;
+
+    const listado = await DB.obtenerTodos('cartera');
+
+    if (listado.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 15px;">No hay registros en la cartera de Supabase.</div>`;
+        return;
+    }
+
+    const formatearDinero = (num) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
+
+    container.innerHTML = listado.map(p => {
+        const hoy = new Date();
+        const fPago = new Date(p.fechaPago + 'T12:00:00');
+        const diffTiempo = fPago - hoy;
+        const diffDias = Math.ceil(diffTiempo / (1000 * 60 * 60 * 24));
+
+        let badgeStyle = 'badge-blue';
+        let alertaIcono = '🟢';
+        if (diffDias < 0) { badgeStyle = 'badge-red'; alertaIcono = '🚨 Vencida'; }
+        else if (diffDias <= 15) { badgeStyle = 'badge-orange'; alertaIcono = '⚠️ Por vencer'; }
+
+        return `
+            <div style="background: var(--surface-2); padding: 16px; border-radius: 18px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--separator);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 16px;">${p.cliente}</h3>
+                        <span style="font-size: 12px; color: var(--text-secondary);">Póliza: <strong>${p.poliza}</strong> | ${p.plan}</span>
+                    </div>
+                    <span class="badge ${badgeStyle}">
+                        ${alertaIcono} (${p.fechaPago})
+                    </span>
                 </div>
-                <span style="background: ${p.semaforo.bg}; color: ${p.semaforo.color}; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; border: 1px solid ${p.semaforo.color}40;">
-                    ${p.semaforo.icon} ${p.fechaPago}
-                </span>
-            </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; color: #48484A; background: #fff; padding: 8px; border-radius: 6px; border: 1px dashed #ccc;">
-                <div><strong>Prima Anual:</strong><br>${formatearDinero(p.prima)}</div>
-                <div><strong>Suma Asegurada:</strong><br>${formatearDinero(p.suma)}</div>
-                <div style="margin-top: 5px;"><strong>Forma:</strong><br>${p.formaPago}</div>
-                <div style="margin-top: 5px;"><strong>Cobro:</strong><br>${p.conductoCobro}</div>
-            </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; background: var(--surface); padding: 10px; border-radius: 12px; border: 1px solid var(--separator);">
+                    <div><span style="color: var(--text-secondary); font-size: 11px;">Prima Anual:</span><br><strong>${formatearDinero(p.prima)}</strong></div>
+                    <div><span style="color: var(--text-secondary); font-size: 11px;">Forma Pago:</span><br><strong>${p.formaPago}</strong></div>
+                </div>
 
-            <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
-                <button onclick="eliminarPolizaDobleCheck('${p.id}')" style="background: transparent; color: #FF3B30; border: 1px solid #FF3B30; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: bold;">🗑️ Eliminar Registro</button>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 5px;">
+                    <button onclick="marcarPolizaComoPagada('${p.id}')" class="btn-primary" style="padding: 8px 12px !important; font-size: 12px; border-radius: 10px !important; background: #34C759 !important;">✅ Ya pagó</button>
+                    <button onclick="cargarPolizaParaEditar('${p.id}')" class="btn-secondary" style="padding: 8px 12px !important; font-size: 12px; border-radius: 10px !important;">✏️ Editar</button>
+                    <button onclick="eliminarPolizaDobleCheck('${p.id}')" class="btn-secondary" style="padding: 8px 12px !important; font-size: 12px; border-radius: 10px !important; color: var(--danger) !important; border-color: var(--danger) !important;">🗑️ Eliminar</button>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+}
+
+window.marcarPolizaComoPagada = async (id) => {
+    const listado = await DB.obtenerTodos('cartera');
+    const poliza = listado.find(p => p.id === id);
+    if (!poliza) return;
+
+    const fechaActual = new Date(poliza.fechaPago + 'T12:00:00');
+    if (poliza.formaPago === 'Mensual') fechaActual.setMonth(fechaActual.getMonth() + 1);
+    else if (poliza.formaPago === 'Trimestral') fechaActual.setMonth(fechaActual.getMonth() + 3);
+    else if (poliza.formaPago === 'Semestral') fechaActual.setMonth(fechaActual.getMonth() + 6);
+    else if (poliza.formaPago === 'Anual') fechaActual.setFullYear(fechaActual.getFullYear() + 1);
+    else fechaActual.setMonth(fechaActual.getMonth() + 1);
+
+    const nuevaFechaStr = fechaActual.toISOString().split('T')[0];
+
+    if (confirm(`¿Confirmar cobro?\nNueva fecha de vencimiento: ${nuevaFechaStr}`)) {
+        await DB.actualizar('cartera', id, { fechaPago: nuevaFechaStr });
+        await actualizarListadoCartera();
+    }
 };
 
 window.eliminarPolizaDobleCheck = async (id) => {
-    if (confirm('¿Deseas eliminar esta póliza de tu cartera?')) {
-        if (confirm('⚠️ ADVERTENCIA: Esta acción es irreversible. ¿Confirmas que deseas proceder?')) {
-            await DB.eliminar('cartera', id);
-            await window.renderListasCartera();
-        }
+    if (confirm('¿Eliminar esta póliza de forma permanente?')) {
+        await DB.eliminar('cartera', id);
+        await actualizarListadoCartera();
     }
 };
