@@ -10,20 +10,28 @@
 </head>
 <body>
 
-    <div class="container">
-        <nav class="sidebar" id="main-sidebar" style="display: none;">
-            <div class="logo">CRM Addlife</div>
-            <button class="nav-btn" data-target="dashboard">Dashboard</button>
-            <button class="nav-btn" data-target="prospeccion">Prospección</button>
-            <button class="nav-btn" data-target="referidos">Referidos</button>
-            <button class="nav-btn" data-target="actividad">Actividad</button>
-            <button class="nav-btn" data-target="cartera">Cartera</button>
-            <button class="nav-btn nav-btn--logout" id="btn-cerrar-sesion">🔒 Cerrar sesión</button>
-        </nav>
+    <main id="app-content"></main>
 
-        <main id="app-content" class="main-content">
-        </main>
-    </div>
+    <nav class="bottom-nav" id="main-nav" style="display: none;">
+        <button class="nav-btn" data-target="dashboard">
+            <span class="icon">🏠</span>Inicio
+        </button>
+        <button class="nav-btn" data-target="prospeccion">
+            <span class="icon">💬</span>Prospección
+        </button>
+        <button class="nav-btn" data-target="referidos">
+            <span class="icon">👥</span>Referidos
+        </button>
+        <button class="nav-btn" data-target="actividad">
+            <span class="icon">📊</span>Actividad
+        </button>
+        <button class="nav-btn" data-target="cartera">
+            <span class="icon">💼</span>Cartera
+        </button>
+        <button class="nav-btn nav-btn--logout" id="btn-cerrar-sesion">
+            <span class="icon">🔒</span>Salir
+        </button>
+    </nav>
 
     <!-- CORRECCIÓN: type="module" en todos los scripts para que funcionen los import/export -->
     <script type="module" src="app.js"></script>

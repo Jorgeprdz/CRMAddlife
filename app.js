@@ -16,57 +16,92 @@ let supabase = null;
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        console.log('Supabase conectado.');
         return true;
     }
     return false;
 }
 
 // ==========================================
-// 2. CIERRE DE SESIÓN
+// 2. VISTAS: LOGIN vs APP
 // ==========================================
-async function cerrarSesion() {
+function mostrarApp() {
+    const nav = document.getElementById('main-nav');
+    const content = document.getElementById('app-content');
+    if (nav) nav.style.display = 'flex';
+    iniciarTemporizadorInactividad();
+    navigateTo('dashboard');
+}
+
+function mostrarLogin() {
     detenerTemporizadorInactividad();
-    if (supabase) await supabase.auth.signOut();
-    // Limpiar estado temporal de actividad del día
-    localStorage.removeItem('actividad_temporal');
-    window.location.reload();
+    const nav = document.getElementById('main-nav');
+    if (nav) nav.style.display = 'none';
+    const content = document.getElementById('app-content');
+    if (content) {
+        content.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:85vh;text-align:center;">
+                <div class="card" style="max-width:380px;width:90%;padding:2.5rem;">
+                    <h1 style="margin-bottom:0.5rem;font-size:2rem;letter-spacing:-0.5px;">CRM Addlife</h1>
+                    <p style="color:#8E8E93;margin-bottom:2rem;font-size:0.95rem;">Ecosistema Privado de Asesoría</p>
+                    <button id="btn-google-login" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;border-radius:12px;border:none;background:#007AFF;color:white;font-weight:600;font-size:16px;cursor:pointer;">
+                        <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google">
+                        Continuar con Google
+                    </button>
+                </div>
+            </div>
+        `;
+        document.getElementById('btn-google-login').addEventListener('click', async () => {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.origin + window.location.pathname }
+            });
+            if (error) alert('Error al iniciar sesión: ' + error.message);
+        });
+    }
 }
 
 // ==========================================
-// 3. TEMPORIZADOR DE INACTIVIDAD (10 min)
+// 3. CIERRE DE SESIÓN
 // ==========================================
-const TIEMPO_INACTIVIDAD_MS = 10 * 60 * 1000;   // 10 minutos
-const TIEMPO_ADVERTENCIA_MS =  9 * 60 * 1000;   //  9 minutos → avisa 1 min antes
+async function cerrarSesion() {
+    localStorage.removeItem('actividad_temporal');
+    detenerTemporizadorInactividad();
+    if (supabase) await supabase.auth.signOut();
+    // onAuthStateChange recibe SIGNED_OUT y llama mostrarLogin() automáticamente
+}
 
-let timerInactividad   = null;
-let timerAdvertencia   = null;
-let toastVisible       = false;
+// ==========================================
+// 4. TEMPORIZADOR DE INACTIVIDAD (10 min)
+// ==========================================
+const TIEMPO_ADVERTENCIA_MS = 9 * 60 * 1000;
+const TIEMPO_CIERRE_MS      = 10 * 60 * 1000;
+
+let timerAdvertencia = null;
+let timerCierre      = null;
+let toastVisible     = false;
 
 function crearToast() {
     if (document.getElementById('inactivity-toast')) return;
     const toast = document.createElement('div');
     toast.id = 'inactivity-toast';
-    toast.innerHTML = '⏳ Sesión inactiva — cerrará en <strong id="toast-countdown">60</strong>s. <br><span style="font-size:12px; color:#FF9500;">Toca cualquier parte para continuar.</span>';
+    toast.innerHTML = `⏳ Sesión inactiva — cierra en <strong id="toast-countdown">60</strong>s.<br>
+        <span style="font-size:12px;color:#FF9500;">Toca cualquier parte para continuar.</span>`;
     document.body.appendChild(toast);
 }
 
 function mostrarToast() {
+    crearToast();
     const toast = document.getElementById('inactivity-toast');
-    if (!toast) return;
-    toastVisible = true;
     toast.style.display = 'block';
+    toastVisible = true;
 
-    let segundos = 60;
+    let seg = 60;
     const el = document.getElementById('toast-countdown');
-    const intervalo = setInterval(() => {
-        segundos--;
-        if (el) el.textContent = segundos;
-        if (segundos <= 0) clearInterval(intervalo);
+    toast._intervalo = setInterval(() => {
+        seg--;
+        if (el) el.textContent = seg;
+        if (seg <= 0) clearInterval(toast._intervalo);
     }, 1000);
-
-    // Guardar referencia para limpiar si el usuario reactiva
-    toast._intervalo = intervalo;
 }
 
 function ocultarToast() {
@@ -77,50 +112,37 @@ function ocultarToast() {
     toastVisible = false;
 }
 
-function reiniciarTemporizador() {
-    // Si el toast está visible y el usuario se movió → ocultarlo y reiniciar
+function reiniciarTimer() {
     if (toastVisible) ocultarToast();
-
     clearTimeout(timerAdvertencia);
-    clearTimeout(timerInactividad);
-
-    timerAdvertencia = setTimeout(() => {
-        mostrarToast();
-    }, TIEMPO_ADVERTENCIA_MS);
-
-    timerInactividad = setTimeout(() => {
-        cerrarSesion();
-    }, TIEMPO_INACTIVIDAD_MS);
+    clearTimeout(timerCierre);
+    timerAdvertencia = setTimeout(mostrarToast,  TIEMPO_ADVERTENCIA_MS);
+    timerCierre      = setTimeout(cerrarSesion,  TIEMPO_CIERRE_MS);
 }
+
+const EVENTOS_ACTIVIDAD = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
 
 function iniciarTemporizadorInactividad() {
     crearToast();
-
-    // Eventos que reinician el timer
-    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evento => {
-        document.addEventListener(evento, reiniciarTemporizador, { passive: true });
-    });
-
-    reiniciarTemporizador(); // Arranca el primer ciclo
+    EVENTOS_ACTIVIDAD.forEach(ev => document.addEventListener(ev, reiniciarTimer, { passive: true }));
+    reiniciarTimer();
 }
 
 function detenerTemporizadorInactividad() {
     clearTimeout(timerAdvertencia);
-    clearTimeout(timerInactividad);
-    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evento => {
-        document.removeEventListener(evento, reiniciarTemporizador);
-    });
+    clearTimeout(timerCierre);
+    ocultarToast();
+    EVENTOS_ACTIVIDAD.forEach(ev => document.removeEventListener(ev, reiniciarTimer));
 }
 
 // ==========================================
-// 4. GEMINI IA
+// 5. GEMINI IA
 // ==========================================
 const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
 
 export async function callGemini(promptText, outputElementId) {
     const output = document.getElementById(outputElementId);
     if (output) output.innerText = 'Procesando con IA...';
-
     try {
         const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
@@ -130,13 +152,11 @@ export async function callGemini(promptText, outputElementId) {
                 body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
             }
         );
-
         const data = await res.json();
-
-        if (data.candidates && data.candidates.length > 0) {
+        if (data.candidates?.length > 0) {
             if (output) output.innerText = data.candidates[0].content.parts[0].text;
         } else {
-            if (output) output.innerText = 'Error API: ' + (data.error ? data.error.message : 'Respuesta vacía');
+            if (output) output.innerText = 'Error API: ' + (data.error?.message || 'Respuesta vacía');
         }
     } catch (err) {
         if (output) output.innerText = 'Error de conexión: ' + err.message;
@@ -144,57 +164,32 @@ export async function callGemini(promptText, outputElementId) {
 }
 
 // ==========================================
-// 5. PANTALLA DE LOGIN
-// ==========================================
-function renderLoginScreen() {
-    return `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center;">
-            <div class="card" style="padding: 2.5rem; max-width: 400px; width: 90%;">
-                <h1 style="margin-bottom: 0.5rem; font-size: 2rem; letter-spacing: -0.5px;">CRM Addlife</h1>
-                <p style="color: #8E8E93; margin-bottom: 2rem; font-size: 0.95rem;">Ecosistema Privado de Asesoría de Alto Valor</p>
-                <button id="btn-google-login" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; border-radius: 12px; border: none; background: #007AFF; color: white; font-weight: 600; font-size: 16px; cursor: pointer;">
-                    <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google">
-                    Continuar con Google
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-// ==========================================
-// 6. NAVEGACIÓN GLOBAL
+// 6. NAVEGACIÓN
 // ==========================================
 window.navigateTo = function(moduleName) {
     const contentArea = document.getElementById('app-content');
     if (!contentArea) return;
 
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = document.querySelector(`[data-target="${moduleName}"]`);
+    document.querySelectorAll('.nav-btn[data-target]').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.nav-btn[data-target="${moduleName}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 
     contentArea.innerHTML = '';
 
-    try {
-        if (moduleName === 'dashboard') {
-            contentArea.innerHTML = renderDashboard();
-            setTimeout(() => bindDashboardEvents(), 50);
-        } else if (moduleName === 'prospeccion') {
-            contentArea.innerHTML = renderProspeccion();
-            setTimeout(() => bindProspeccionEvents(), 50);
-        } else if (moduleName === 'referidos') {
-            contentArea.innerHTML = renderReferidos();
-            setTimeout(() => bindReferidosEvents(), 50);
-        } else if (moduleName === 'actividad') {
-            contentArea.innerHTML = renderActividad();
-            setTimeout(() => bindActividadEvents(), 50);
-        } else if (moduleName === 'cartera') {
-            contentArea.innerHTML = renderCartera();
-            setTimeout(() => bindCarteraEvents(), 50);
-        } else {
-            contentArea.innerHTML = `<div class="card"><h2>${moduleName.toUpperCase()}</h2><p>Módulo en construcción.</p></div>`;
-        }
-    } catch (error) {
-        contentArea.innerHTML = `<div class="card" style="color:red;"><h2>Error</h2><p>${error.message}</p></div>`;
+    const modulos = {
+        dashboard:   [renderDashboard,   bindDashboardEvents],
+        prospeccion: [renderProspeccion, bindProspeccionEvents],
+        referidos:   [renderReferidos,   bindReferidosEvents],
+        actividad:   [renderActividad,   bindActividadEvents],
+        cartera:     [renderCartera,     bindCarteraEvents],
+    };
+
+    const mod = modulos[moduleName];
+    if (mod) {
+        contentArea.innerHTML = mod[0]();
+        setTimeout(() => mod[1](), 50);
+    } else {
+        contentArea.innerHTML = `<div class="card"><h2>${moduleName}</h2><p>Módulo en construcción.</p></div>`;
     }
 };
 
@@ -203,57 +198,43 @@ window.navigateTo = function(moduleName) {
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
 
-    // Delegación de clics del menú
+    // Delegación de eventos del nav
     document.body.addEventListener('click', (e) => {
-        // Botón cerrar sesión
         if (e.target.closest('#btn-cerrar-sesion')) {
             if (confirm('¿Cerrar sesión?')) cerrarSesion();
             return;
         }
-        // Botones de navegación
-        const navBtn = e.target.closest('.nav-btn');
-        if (navBtn) {
-            const target = navBtn.getAttribute('data-target');
-            if (target) window.navigateTo(target);
-        }
+        const navBtn = e.target.closest('.nav-btn[data-target]');
+        if (navBtn) window.navigateTo(navBtn.getAttribute('data-target'));
     });
 
     // Esperar SDK Supabase
     let intentos = 0;
-    while (!inicializarSupabase() && intentos < 10) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+    while (!inicializarSupabase() && intentos < 20) {
+        await new Promise(r => setTimeout(r, 100));
         intentos++;
     }
 
     if (!supabase) {
-        document.getElementById('app-content').innerHTML = `
-            <div class="card" style="color:red;">
-                <h2>Error de Conexión</h2>
-                <p>El servicio tardó demasiado. Revisa tu conexión a internet.</p>
-            </div>`;
+        document.getElementById('app-content').innerHTML =
+            `<div class="card" style="color:red;"><h2>Error de conexión</h2><p>Revisa tu internet e intenta de nuevo.</p></div>`;
         return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const navBar = document.getElementById('main-sidebar');
-
-    if (!user) {
-        if (navBar) navBar.style.display = 'none';
-        const contentArea = document.getElementById('app-content');
-        if (contentArea) {
-            contentArea.innerHTML = renderLoginScreen();
-            document.getElementById('btn-google-login').addEventListener('click', async () => {
-                const URL_REDIRECCION = window.location.origin + window.location.pathname;
-                const { error } = await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: { redirectTo: URL_REDIRECCION }
-                });
-                if (error) alert('No se pudo iniciar sesión: ' + error.message);
-            });
+    // Escuchar cambios de sesión — fuente única de verdad para login/logout
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            mostrarApp();
+        } else if (event === 'SIGNED_OUT') {
+            mostrarLogin();
         }
+    });
+
+    // Verificar sesión actual al arrancar
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        mostrarApp();
     } else {
-        if (navBar) navBar.style.display = 'flex';
-        iniciarTemporizadorInactividad();
-        window.navigateTo('dashboard');
+        mostrarLogin();
     }
 });
