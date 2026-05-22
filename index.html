@@ -10,8 +10,25 @@
 </head>
 <body>
 
+    <!-- HEADER CON BLUR -->
+    <header class="top-bar nav-oculto" id="main-header">
+        <span class="top-bar__title" id="header-title">CRM Addlife</span>
+        <div class="top-bar__right">
+            <!-- TOGGLE DARK/LIGHT iOS -->
+            <label class="theme-switch" title="Modo oscuro">
+                <input type="checkbox" id="theme-toggle">
+                <span class="theme-switch__track">
+                    <span class="theme-switch__thumb">
+                        <span class="theme-switch__icon" id="theme-icon">☀️</span>
+                    </span>
+                </span>
+            </label>
+        </div>
+    </header>
+
     <main id="app-content"></main>
 
+    <!-- NAV PÍLDORA FLOTANTE -->
     <nav class="bottom-nav nav-oculto" id="main-nav">
         <button class="nav-btn" data-target="dashboard">
             <span class="icon">🏠</span>Inicio

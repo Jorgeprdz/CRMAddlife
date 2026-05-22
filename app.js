@@ -26,7 +26,9 @@ function inicializarSupabase() {
 // ==========================================
 function mostrarApp() {
     const nav = document.getElementById('main-nav');
+    const header = document.getElementById('main-header');
     if (nav) nav.classList.remove('nav-oculto');
+    if (header) header.classList.remove('nav-oculto');
     iniciarTemporizadorInactividad();
     navigateTo('dashboard');
 }
@@ -34,7 +36,9 @@ function mostrarApp() {
 function mostrarLogin() {
     detenerTemporizadorInactividad();
     const nav = document.getElementById('main-nav');
+    const header = document.getElementById('main-header');
     if (nav) nav.classList.add('nav-oculto');
+    if (header) header.classList.add('nav-oculto');
     const content = document.getElementById('app-content');
     if (content) {
         content.innerHTML = `
@@ -165,6 +169,14 @@ export async function callGemini(promptText, outputElementId) {
 // ==========================================
 // 6. NAVEGACIÓN
 // ==========================================
+const TITULOS = {
+    dashboard:   '🏠 Inicio',
+    prospeccion: '💬 Prospección',
+    referidos:   '👥 Referidos',
+    actividad:   '📊 Actividad',
+    cartera:     '💼 Cartera',
+};
+
 window.navigateTo = function(moduleName) {
     const contentArea = document.getElementById('app-content');
     if (!contentArea) return;
@@ -172,6 +184,10 @@ window.navigateTo = function(moduleName) {
     document.querySelectorAll('.nav-btn[data-target]').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.querySelector(`.nav-btn[data-target="${moduleName}"]`);
     if (activeBtn) activeBtn.classList.add('active');
+
+    // Actualizar título del header
+    const headerTitle = document.getElementById('header-title');
+    if (headerTitle) headerTitle.textContent = TITULOS[moduleName] || 'CRM Addlife';
 
     contentArea.innerHTML = '';
 
@@ -193,9 +209,41 @@ window.navigateTo = function(moduleName) {
 };
 
 // ==========================================
+// 7. DARK MODE TOGGLE
+// ==========================================
+function iniciarDarkMode() {
+    const toggle = document.getElementById('theme-toggle');
+    const icon   = document.getElementById('theme-icon');
+    if (!toggle) return;
+
+    // Recuperar preferencia guardada
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark');
+        toggle.checked = true;
+        if (icon) icon.textContent = '🌙';
+    }
+
+    toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+            document.body.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+            if (icon) icon.textContent = '🌙';
+        } else {
+            document.body.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+            if (icon) icon.textContent = '☀️';
+        }
+    });
+}
+
+// ==========================================
 // 7. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
+
+    // Dark mode — arranca antes que todo para evitar flash
+    iniciarDarkMode();
 
     // Delegación de eventos del nav
     document.body.addEventListener('click', (e) => {
