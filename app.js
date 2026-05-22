@@ -12,11 +12,12 @@ const supabaseUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts';
 
 let supabase = null;
+let appInicializada = false; // Control crítico para evitar rebotes cíclicos al Dashboard
 
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        window.supabaseClient = supabase; // <-- EXPOSICIÓN CLOUD MULTIDISPOSITIVO PARA DB.JS
+        window.supabaseClient = supabase; // Exposición global indispensable para el motor cloud en db.js
         return true;
     }
     return false;
@@ -31,10 +32,16 @@ function mostrarApp() {
     if (nav) nav.classList.remove('nav-oculto');
     if (header) header.classList.remove('nav-oculto');
     iniciarTemporizadorInactividad();
-    navigateTo('dashboard');
+    
+    // Solo fuerza la navegación inicial al dashboard si la aplicación no se ha montado antes
+    if (!appInicializada) {
+        appInicializada = true;
+        window.navigateTo('dashboard');
+    }
 }
 
 function mostrarLogin() {
+    appInicializada = false;
     detenerTemporizadorInactividad();
     const nav = document.getElementById('main-nav');
     const header = document.getElementById('main-header');
@@ -71,9 +78,7 @@ async function cerrarSesion() {
     localStorage.removeItem('actividad_temporal');
     detenerTemporizadorInactividad();
     if (supabase) await supabase.auth.signOut();
-    // onAuthStateChange recibe SIGNED_OUT y llama mostrarLogin() automáticamente
 }
-window.cerrarSesion = cerrarSesion; // <-- Expuesto globalmente para el botón "Salir" del HTML
 
 // ==========================================
 // 4. TEMPORIZADOR DE INACTIVIDAD (10 min)
@@ -169,7 +174,7 @@ export async function callGemini(promptText, outputElementId) {
         if (output) output.innerText = 'Error de conexión: ' + err.message;
     }
 }
-window.callGemini = callGemini; // <-- Garantiza disponibilidad global en módulos secundarios
+window.callGemini = callGemini;
 
 // ==========================================
 // 6. NAVEGACIÓN
@@ -206,8 +211,12 @@ window.navigateTo = function(moduleName) {
 
     const mod = modulos[moduleName];
     if (mod) {
-        contentArea.innerHTML = mod[0]();
-        setTimeout(() => mod[1](), 50);
+        try {
+            contentArea.innerHTML = mod[0]();
+            setTimeout(() => mod[1](), 50);
+        } catch (e) {
+            console.error("Error al renderizar el módulo activo:", e);
+        }
     } else {
         contentArea.innerHTML = `<div class="card"><h2>${moduleName}</h2><p>Módulo en construcción.</p></div>`;
     }
@@ -236,7 +245,6 @@ function iniciarDarkMode() {
         }
     };
 
-    // Recuperar preferencia guardada
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         toggle.checked = true;
@@ -250,21 +258,22 @@ function iniciarDarkMode() {
 // 8. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-
-    // Dark mode — arranca antes que todo para evitar flash
     iniciarDarkMode();
 
-    // Delegación de eventos del nav y logout
+    // Delegación limpia de eventos de clics
     document.body.addEventListener('click', (e) => {
         if (e.target.closest('#btn-cerrar-sesion')) {
             if (confirm('¿Cerrar sesión?')) cerrarSesion();
             return;
         }
         const navBtn = e.target.closest('.nav-btn[data-target]');
-        if (navBtn) window.navigateTo(navBtn.getAttribute('data-target'));
+        if (navBtn) {
+            e.preventDefault();
+            window.navigateTo(navBtn.getAttribute('data-target'));
+        }
     });
 
-    // Esperar SDK Supabase
+    // Esperar inyección asíncrona del SDK
     let intentos = 0;
     while (!inicializarSupabase() && intentos < 20) {
         await new Promise(r => setTimeout(r, 100));
@@ -273,11 +282,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!supabase) {
         document.getElementById('app-content').innerHTML =
-            `<div class="card" style="color:red;"><h2>Error de conexión</h2><p>Revisa tu internet e intenta de nuevo.</p></div>`;
+            `<div class="card" style="color:red;"><h2>Error de conexión</h2><p>El SDK de Supabase falló al cargar.</p></div>`;
         return;
     }
 
-    // getSession maneja el estado inicial
+    // Determinar la vista inicial de forma lineal y única
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
         mostrarApp();
@@ -285,9 +294,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         mostrarLogin();
     }
 
-    // onAuthStateChange solo reacciona a cambios futuros (login / logout)
+    // Escuchar cambios de autenticación futuros evitando ejecuciones redundantes
     supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN') mostrarApp();
-        if (event === 'SIGNED_OUT') mostrarLogin();
+        if (event === 'SIGNED_IN' && session) {
+            mostrarApp();
+        }
+        if (event === 'SIGNED_OUT') {
+            mostrarLogin();
+        }
     });
 });
