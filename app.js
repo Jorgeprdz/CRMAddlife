@@ -6,25 +6,48 @@ import { renderActividad, bindActividadEvents } from './actividad.js';
 import { renderCartera, bindCarteraEvents } from './cartera.js';
 
 // ==========================================
-// 1. CONFIGURACIÓN SUPABASE
+// 1. PWA: SERVICE WORKER E INSTALACIÓN
+// ==========================================
+let deferredPrompt;
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+            .catch(err => console.error('Error al registrar SW:', err));
+    });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Evita que Chrome muestre el mini-infobar automáticamente
+    e.preventDefault();
+    // Guarda el evento para usarlo en el botón
+    deferredPrompt = e;
+    
+    // Si el botón ya está renderizado, lo mostramos
+    const installBtn = document.getElementById('btn-install-app');
+    if (installBtn) installBtn.style.display = 'flex';
+});
+
+// ==========================================
+// 2. CONFIGURACIÓN SUPABASE
 // ==========================================
 const supabaseUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts';
 
 let supabase = null;
-let appInicializada = false; // Control crítico para evitar rebotes cíclicos al Dashboard
+let appInicializada = false;
 
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        window.supabaseClient = supabase; // Exposición global indispensable para el motor cloud en db.js
+        window.supabaseClient = supabase; // Exposición global para el motor cloud
         return true;
     }
     return false;
 }
 
 // ==========================================
-// 2. VISTAS: LOGIN vs APP
+// 3. VISTAS: LOGIN vs APP
 // ==========================================
 function mostrarApp() {
     const nav = document.getElementById('main-nav');
@@ -33,7 +56,6 @@ function mostrarApp() {
     if (header) header.classList.remove('nav-oculto');
     iniciarTemporizadorInactividad();
     
-    // Solo fuerza la navegación inicial al dashboard si la aplicación no se ha montado antes
     if (!appInicializada) {
         appInicializada = true;
         window.navigateTo('dashboard');
@@ -47,6 +69,7 @@ function mostrarLogin() {
     const header = document.getElementById('main-header');
     if (nav) nav.classList.add('nav-oculto');
     if (header) header.classList.add('nav-oculto');
+    
     const content = document.getElementById('app-content');
     if (content) {
         content.innerHTML = `
@@ -54,25 +77,48 @@ function mostrarLogin() {
                 <div class="card" style="max-width:380px;width:90%;padding:2.5rem;">
                     <h1 style="margin-bottom:0.5rem;font-size:2rem;letter-spacing:-0.5px;">CRM Addlife</h1>
                     <p style="color:#8E8E93;margin-bottom:2rem;font-size:0.95rem;">Ecosistema Privado de Asesoría</p>
+                    
                     <button id="btn-google-login" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;border-radius:12px;border:none;background:#007AFF;color:white;font-weight:600;font-size:16px;cursor:pointer;">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" height="18" alt="Google">
                         Continuar con Google
                     </button>
+
+                    <button id="btn-install-app" style="display:none; align-items:center; justify-content:center; gap:10px; width:100%; padding:14px; border-radius:12px; border:2px dashed #007AFF; background:transparent; color:var(--text-main); font-weight:600; font-size:16px; cursor:pointer; margin-top:15px;">
+                        📲 Instalar App en el dispositivo
+                    </button>
                 </div>
             </div>
         `;
+
+        // Evento Google Login
         document.getElementById('btn-google-login').addEventListener('click', async () => {
-            const { error } = await supabase.auth.signInWithOAuth({
+            const { error } = await window.supabaseClient.auth.signInWithOAuth({
                 provider: 'google',
                 options: { redirectTo: window.location.origin + window.location.pathname }
             });
             if (error) alert('Error al iniciar sesión: ' + error.message);
         });
+
+        // Evento Instalación PWA
+        const installBtn = document.getElementById('btn-install-app');
+        if (installBtn) {
+            if (deferredPrompt) installBtn.style.display = 'flex';
+
+            installBtn.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installBtn.style.display = 'none';
+                }
+                deferredPrompt = null;
+            });
+        }
     }
 }
 
 // ==========================================
-// 3. CIERRE DE SESIÓN
+// 4. CIERRE DE SESIÓN
 // ==========================================
 async function cerrarSesion() {
     localStorage.removeItem('actividad_temporal');
@@ -81,7 +127,7 @@ async function cerrarSesion() {
 }
 
 // ==========================================
-// 4. TEMPORIZADOR DE INACTIVIDAD (10 min)
+// 5. TEMPORIZADOR DE INACTIVIDAD (10 min)
 // ==========================================
 const TIEMPO_ADVERTENCIA_MS = 9 * 60 * 1000;
 const TIEMPO_CIERRE_MS      = 10 * 60 * 1000;
@@ -148,7 +194,7 @@ function detenerTemporizadorInactividad() {
 }
 
 // ==========================================
-// 5. GEMINI IA
+// 6. GEMINI IA
 // ==========================================
 const GEMINI_API_KEY = 'AIzaSyA6Sus4uIfmN8gTrNl1o1R2BixsmbUZyjg';
 
@@ -177,7 +223,7 @@ export async function callGemini(promptText, outputElementId) {
 window.callGemini = callGemini;
 
 // ==========================================
-// 6. NAVEGACIÓN
+// 7. NAVEGACIÓN
 // ==========================================
 const TITULOS = {
     dashboard:   '🏠 Inicio',
@@ -195,7 +241,6 @@ window.navigateTo = function(moduleName) {
     const activeBtn = document.querySelector(`.nav-btn[data-target="${moduleName}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 
-    // Actualizar título del header
     const headerTitle = document.getElementById('header-title');
     if (headerTitle) headerTitle.textContent = TITULOS[moduleName] || 'CRM Addlife';
 
@@ -223,7 +268,7 @@ window.navigateTo = function(moduleName) {
 };
 
 // ==========================================
-// 7. DARK MODE TOGGLE
+// 8. DARK MODE TOGGLE
 // ==========================================
 function iniciarDarkMode() {
     const toggle = document.getElementById('theme-toggle');
@@ -255,12 +300,11 @@ function iniciarDarkMode() {
 }
 
 // ==========================================
-// 8. ARRANQUE
+// 9. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     iniciarDarkMode();
 
-    // Delegación limpia de eventos de clics
     document.body.addEventListener('click', (e) => {
         if (e.target.closest('#btn-cerrar-sesion')) {
             if (confirm('¿Cerrar sesión?')) cerrarSesion();
@@ -273,7 +317,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Esperar inyección asíncrona del SDK
     let intentos = 0;
     while (!inicializarSupabase() && intentos < 20) {
         await new Promise(r => setTimeout(r, 100));
@@ -286,7 +329,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Determinar la vista inicial de forma lineal y única
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
         mostrarApp();
@@ -294,7 +336,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         mostrarLogin();
     }
 
-    // Escuchar cambios de autenticación futuros evitando ejecuciones redundantes
     supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' && session) {
             mostrarApp();

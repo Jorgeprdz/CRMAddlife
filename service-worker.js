@@ -1,21 +1,22 @@
-const CACHE_NAME = 'addlife-cache-v1';
+// ==========================================
+// PWA: SERVICE WORKER E INSTALACIÓN
+// ==========================================
+let deferredPrompt;
 
-const urlsToCache = [
-    './',
-    './index.html',
-    './styles.css',
-    './app.js',
-    './manifest.json'
-];
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+            .catch(err => console.error('Error al registrar SW:', err));
+    });
+}
 
-self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
-    );
-});
-
-self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request).then(response => response || fetch(event.request))
-    );
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Evita que Chrome muestre el mini-infobar automáticamente
+    e.preventDefault();
+    // Guarda el evento para usarlo en nuestro botón
+    deferredPrompt = e;
+    
+    // Si el botón ya está en pantalla, lo mostramos
+    const installBtn = document.getElementById('btn-install-app');
+    if (installBtn) installBtn.style.display = 'flex';
 });
