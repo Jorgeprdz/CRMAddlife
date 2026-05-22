@@ -6,7 +6,6 @@
     <title>CRM Addlife</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    <!-- Entintado de barra de estado -->
     <meta name="theme-color" id="meta-theme-color" content="#F2F2F7">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,56 +13,45 @@
 </head>
 <body>
 
-    <!-- HEADER CON BLUR -->
-    <header class="top-bar nav-oculto" id="main-header">
-        <span class="top-bar__title" id="header-title">CRM Addlife</span>
-        <div class="top-bar__right">
-            <!-- Selector de temas -->
-            <div class="theme-selector" id="theme-selector">
-                <div class="theme-dot active" data-theme="oneui"    title="One UI"></div>
-                <div class="theme-dot"        data-theme="material" title="Material You"></div>
-                <div class="theme-dot"        data-theme="slate"    title="Slate"></div>
-                <div class="theme-dot"        data-theme="aurora"   title="Aurora"></div>
-            </div>
-            <div class="top-bar__divider"></div>
-            <!-- Toggle dark/light -->
-            <label class="theme-switch" id="toggle-wrapper" title="Modo oscuro">
+    <header class="app-header" id="main-header">
+        <span class="app-header-title" id="header-title">CRM Addlife</span>
+        <div class="ios-toggle-wrap" title="Modo oscuro">
+            <span class="toggle-icon">☀️</span>
+            <label class="ios-toggle" aria-label="Activar modo oscuro">
                 <input type="checkbox" id="theme-toggle">
-                <span class="theme-switch__track">
-                    <span class="theme-switch__thumb">
-                        <span class="theme-switch__icon" id="theme-icon">☀️</span>
-                    </span>
-                </span>
+                <div class="ios-toggle-track"></div>
+                <div class="ios-toggle-thumb"></div>
             </label>
+            <span class="toggle-icon">🌙</span>
         </div>
     </header>
 
     <main id="app-content"></main>
 
-    <!-- NAV PÍLDORA FLOTANTE -->
-    <nav class="bottom-nav nav-oculto" id="main-nav">
-        <button class="nav-btn" data-target="dashboard">
-            <span class="icon">🏠</span>Inicio
+    <nav id="main-sidebar" class="bottom-nav" style="display: none;">
+        <button class="nav-btn active" data-target="dashboard">
+            <span class="icon">🏠</span><span class="label">Inicio</span>
         </button>
         <button class="nav-btn" data-target="prospeccion">
-            <span class="icon">💬</span>Prospección
+            <span class="icon">🎯</span><span class="label">Prospectos</span>
         </button>
         <button class="nav-btn" data-target="referidos">
-            <span class="icon">👥</span>Referidos
+            <span class="icon">👥</span><span class="label">Referidos</span>
         </button>
         <button class="nav-btn" data-target="actividad">
-            <span class="icon">📊</span>Actividad
+            <span class="icon">📈</span><span class="label">Actividad</span>
         </button>
         <button class="nav-btn" data-target="cartera">
-            <span class="icon">💼</span>Cartera
+            <span class="icon">💼</span><span class="label">Cartera</span>
         </button>
-        <button class="nav-btn nav-btn--logout" id="btn-cerrar-sesion">
-            <span class="icon">🔒</span>Salir
+        <button class="nav-btn" data-target="comisiones">
+            <span class="icon">💰</span><span class="label">Finanzas</span>
+        </button>
+        <button class="nav-btn nav-btn-logout" onclick="cerrarSesion()">
+            <span class="icon">🚪</span><span class="label">Salir</span>
         </button>
     </nav>
 
-    <!-- CORRECCIÓN: type="module" en todos los scripts para que funcionen los import/export -->
     <script type="module" src="app.js"></script>
-
 </body>
 </html>
