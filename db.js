@@ -1,80 +1,57 @@
-// db.js - Motor de Base de Datos Local (IndexedDB)
-const DB_NAME = 'CRM_Addlife_DB';
-const DB_VERSION = 2;
-
-function abrirDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-
-            if (!db.objectStoreNames.contains('referidos')) {
-                db.createObjectStore('referidos', { keyPath: 'id' });
-            }
-            if (!db.objectStoreNames.contains('historial_actividad')) {
-                db.createObjectStore('historial_actividad', { keyPath: 'id' });
-            }
-            if (!db.objectStoreNames.contains('cartera')) {
-                db.createObjectStore('cartera', { keyPath: 'id' });
-            }
-        };
-
-        request.onsuccess = (e) => resolve(e.target.result);
-        request.onerror = (e) => reject(e.target.error);
-    });
-}
+// db.js - Motor de Base de Datos Cloud (Supabase)
 
 export const DB = {
     guardar: async (coleccion, datos) => {
-        const db = await abrirDB();
-        return new Promise((resolve, reject) => {
-            const transaccion = db.transaction(coleccion, 'readwrite');
-            const almacén = transaccion.objectStore(coleccion);
-            almacén.put(datos);
-            transaccion.oncomplete = () => resolve(true);
-            transaccion.onerror = () => reject(transaccion.error);
-        });
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        if (!user) return false;
+
+        const { error } = await window.supabaseClient.from('crm_data').insert([{
+            id: datos.id,
+            user_id: user.id,
+            coleccion: coleccion,
+            datos: datos
+        }]);
+        if (error) throw error;
+        return true;
     },
 
     obtenerTodos: async (coleccion) => {
-        const db = await abrirDB();
-        return new Promise((resolve, reject) => {
-            const transaccion = db.transaction(coleccion, 'readonly');
-            const almacén = transaccion.objectStore(coleccion);
-            const solicitud = almacén.getAll();
-            solicitud.onsuccess = () => resolve(solicitud.result || []);
-            solicitud.onerror = () => reject(solicitud.error);
-        });
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        if (!user) return [];
+
+        const { data, error } = await window.supabaseClient.from('crm_data')
+            .select('datos')
+            .eq('user_id', user.id)
+            .eq('coleccion', coleccion);
+            
+        if (error) throw error;
+        return data ? data.map(row => row.datos) : [];
     },
 
     eliminar: async (coleccion, id) => {
-        const db = await abrirDB();
-        return new Promise((resolve, reject) => {
-            const transaccion = db.transaction(coleccion, 'readwrite');
-            const almacén = transaccion.objectStore(coleccion);
-            almacén.delete(id);
-            transaccion.oncomplete = () => resolve(true);
-            transaccion.onerror = () => reject(transaccion.error);
-        });
+        const { error } = await window.supabaseClient.from('crm_data')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
+        return true;
     },
 
     actualizar: async (coleccion, id, nuevosDatos) => {
-        const db = await abrirDB();
-        return new Promise((resolve, reject) => {
-            const transaccion = db.transaction(coleccion, 'readwrite');
-            const almacén = transaccion.objectStore(coleccion);
-            const consulta = almacén.get(id);
+        // Obtenemos los datos actuales para fusionarlos
+        const { data, error: errGet } = await window.supabaseClient.from('crm_data')
+            .select('datos')
+            .eq('id', id)
+            .single();
+            
+        if (errGet || !data) return false;
 
-            consulta.onsuccess = () => {
-                const registroExistente = consulta.result;
-                if (registroExistente) {
-                    const registroActualizado = { ...registroExistente, ...nuevosDatos };
-                    almacén.put(registroActualizado);
-                }
-            };
-            transaccion.oncomplete = () => resolve(true);
-            transaccion.onerror = () => reject(transaccion.error);
-        });
+        const registroActualizado = { ...data.datos, ...nuevosDatos };
+        
+        const { error: errUpdate } = await window.supabaseClient.from('crm_data')
+            .update({ datos: registroActualizado })
+            .eq('id', id);
+            
+        if (errUpdate) throw errUpdate;
+        return true;
     }
 };

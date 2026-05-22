@@ -16,6 +16,7 @@ let supabase = null;
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        window.supabaseClient = supabase; // <-- EXPOSICIÓN CLOUD MULTIDISPOSITIVO PARA DB.JS
         return true;
     }
     return false;
@@ -47,7 +48,7 @@ function mostrarLogin() {
                     <h1 style="margin-bottom:0.5rem;font-size:2rem;letter-spacing:-0.5px;">CRM Addlife</h1>
                     <p style="color:#8E8E93;margin-bottom:2rem;font-size:0.95rem;">Ecosistema Privado de Asesoría</p>
                     <button id="btn-google-login" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;border-radius:12px;border:none;background:#007AFF;color:white;font-weight:600;font-size:16px;cursor:pointer;">
-                        <img src="https://www.google.com/favicon.ico" width="18" height="18" alt="Google">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" width="18" height="18" alt="Google">
                         Continuar con Google
                     </button>
                 </div>
@@ -72,6 +73,7 @@ async function cerrarSesion() {
     if (supabase) await supabase.auth.signOut();
     // onAuthStateChange recibe SIGNED_OUT y llama mostrarLogin() automáticamente
 }
+window.cerrarSesion = cerrarSesion; // <-- Expuesto globalmente para el botón "Salir" del HTML
 
 // ==========================================
 // 4. TEMPORIZADOR DE INACTIVIDAD (10 min)
@@ -95,16 +97,18 @@ function crearToast() {
 function mostrarToast() {
     crearToast();
     const toast = document.getElementById('inactivity-toast');
-    toast.style.display = 'block';
-    toastVisible = true;
+    if (toast) {
+        toast.style.display = 'block';
+        toastVisible = true;
 
-    let seg = 60;
-    const el = document.getElementById('toast-countdown');
-    toast._intervalo = setInterval(() => {
-        seg--;
-        if (el) el.textContent = seg;
-        if (seg <= 0) clearInterval(toast._intervalo);
-    }, 1000);
+        let seg = 60;
+        const el = document.getElementById('toast-countdown');
+        toast._intervalo = setInterval(() => {
+            seg--;
+            if (el) el.textContent = seg;
+            if (seg <= 0) clearInterval(toast._intervalo);
+        }, 1000);
+    }
 }
 
 function ocultarToast() {
@@ -165,6 +169,7 @@ export async function callGemini(promptText, outputElementId) {
         if (output) output.innerText = 'Error de conexión: ' + err.message;
     }
 }
+window.callGemini = callGemini; // <-- Garantiza disponibilidad global en módulos secundarios
 
 // ==========================================
 // 6. NAVEGACIÓN
@@ -242,14 +247,14 @@ function iniciarDarkMode() {
 }
 
 // ==========================================
-// 7. ARRANQUE
+// 8. ARRANQUE
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
 
     // Dark mode — arranca antes que todo para evitar flash
     iniciarDarkMode();
 
-    // Delegación de eventos del nav
+    // Delegación de eventos del nav y logout
     document.body.addEventListener('click', (e) => {
         if (e.target.closest('#btn-cerrar-sesion')) {
             if (confirm('¿Cerrar sesión?')) cerrarSesion();
