@@ -3,8 +3,8 @@
   "short_name": "Addlife",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#E8E7F5",
-  "theme_color": "#1D14C3",
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
   "orientation": "portrait",
   "icons": [
     {
