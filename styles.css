@@ -85,6 +85,10 @@ button.btn-secondary {
     z-index: 1000;
 }
 
+.nav-oculto {
+    display: none !important;
+}
+
 .nav-btn {
     background: none;
     border: none;

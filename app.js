@@ -26,8 +26,7 @@ function inicializarSupabase() {
 // ==========================================
 function mostrarApp() {
     const nav = document.getElementById('main-nav');
-    const content = document.getElementById('app-content');
-    if (nav) nav.style.display = 'flex';
+    if (nav) nav.classList.remove('nav-oculto');
     iniciarTemporizadorInactividad();
     navigateTo('dashboard');
 }
@@ -35,7 +34,7 @@ function mostrarApp() {
 function mostrarLogin() {
     detenerTemporizadorInactividad();
     const nav = document.getElementById('main-nav');
-    if (nav) nav.style.display = 'none';
+    if (nav) nav.classList.add('nav-oculto');
     const content = document.getElementById('app-content');
     if (content) {
         content.innerHTML = `
@@ -221,20 +220,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Escuchar cambios de sesión — fuente única de verdad para login/logout
-    supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            mostrarApp();
-        } else if (event === 'SIGNED_OUT') {
-            mostrarLogin();
-        }
-    });
-
-    // Verificar sesión actual al arrancar
+    // getSession maneja el estado inicial
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
         mostrarApp();
     } else {
         mostrarLogin();
     }
+
+    // onAuthStateChange solo reacciona a cambios futuros (login / logout)
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN') mostrarApp();
+        if (event === 'SIGNED_OUT') mostrarLogin();
+    });
 });
