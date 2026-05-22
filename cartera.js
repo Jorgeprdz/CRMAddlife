@@ -5,6 +5,24 @@ let idEdicionActual = null;
 
 export function renderCartera() {
     return `
+        <div class="card" style="border-left: 4px solid var(--accent); margin-bottom: 20px;">
+            <h2 style="font-size: 16px; margin-bottom: 12px;">📊 Resumen de Cartera</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div style="background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator);">
+                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Total Pólizas</span><br>
+                    <strong id="kpi-total-polizas" style="font-size: 18px; color: var(--text-primary);">0</strong>
+                </div>
+                <div style="background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator);">
+                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Prima Anualizada</span><br>
+                    <strong id="kpi-prima-total" style="font-size: 18px; color: var(--success);">$0.00</strong>
+                </div>
+                <div style="grid-column: span 2; background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator); display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Cobranza crítica (vencida o < 30 días):</span>
+                    <strong id="kpi-alertas" class="badge badge-orange" style="font-size: 13px;">0 pólizas</strong>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <h2 id="formulario-titulo">Alta de Póliza</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -70,7 +88,6 @@ export function renderCartera() {
 }
 
 export async function bindCarteraEvents() {
-    // Inyección de la librería externa para manejo de libros Excel sin romper dependencias
     if (!window.XLSX) {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
@@ -92,7 +109,6 @@ export async function bindCarteraEvents() {
     await actualizarListadoCartera();
 }
 
-// ---- CONTROL DE DATOS ----
 async function guardarOActualizarPoliza() {
     const cliente = document.getElementById('c-cliente').value.trim();
     const poliza = document.getElementById('c-poliza').value.trim();
@@ -122,17 +138,15 @@ async function guardarOActualizarPoliza() {
     try {
         if (idEdicionActual) {
             await DB.actualizar('cartera', idEdicionActual, datosPoliza);
-            alert('Póliza modificada correctamente.');
         } else {
             datosPoliza.id = 'pol_' + Date.now();
             await DB.guardar('cartera', datosPoliza);
-            alert('Póliza guardada con éxito.');
         }
         limpiarFormularioCartera();
         await actualizarListadoCartera();
     } catch (err) {
         console.error(err);
-        alert('Error al procesar la operación en la nube.');
+        alert('Error al procesar la operación.');
     }
 }
 
@@ -173,7 +187,6 @@ function limpiarFormularioCartera() {
     document.getElementById('btn-cancelar-edicion').style.display = 'none';
 }
 
-// ---- SISTEMA DE EXPORTACIÓN (BACKUP COMPLETO) ----
 async function exportarCarteraCompleta() {
     try {
         const registros = await DB.obtenerTodos('cartera');
@@ -182,7 +195,6 @@ async function exportarCarteraCompleta() {
             return;
         }
 
-        // Mapeo estructurado para que el archivo de salida sea legible de inmediato
         const matrizDatos = registros.map(p => ({
             'Cliente': p.cliente,
             'Número de Póliza': p.poliza,
@@ -197,8 +209,6 @@ async function exportarCarteraCompleta() {
         const hoja = XLSX.utils.json_to_sheet(matrizDatos);
         const libro = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(libro, hoja, 'Cartera Vigente');
-
-        // Generar descarga nativa del navegador
         XLSX.writeFile(libro, `Cartera_Addlife_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (err) {
         console.error(err);
@@ -206,7 +216,6 @@ async function exportarCarteraCompleta() {
     }
 }
 
-// ---- SISTEMA DE IMPORTACIÓN ----
 function procesarArchivoExcel(e) {
     const archivo = e.target.files[0];
     if (!archivo) return;
@@ -235,32 +244,53 @@ function procesarArchivoExcel(e) {
                 await DB.guardar('cartera', nuevaPoliza);
                 cargados++;
             }
-            alert(`Sincronización en la nube exitosa. Se añadieron ${cargados} pólizas.`);
+            alert(`Sincronización exitosa. Se añadieron ${cargados} pólizas.`);
             await actualizarListadoCartera();
         } catch (err) {
             console.error(err);
-            alert('Formato de archivo no reconocido. Asegúrate de estructurar el Excel correctamente.');
+            alert('Formato de archivo no reconocido.');
         }
     };
     lector.readAsArrayBuffer(archivo);
 }
 
-// ---- INTERFAZ DE USUARIO (ONE UI 8.5) ----
 async function actualizarListadoCartera() {
     const container = document.getElementById('lista-cartera-container');
     if (!container) return;
 
     const listado = await DB.obtenerTodos('cartera');
+    const formatearDinero = (num) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
 
+    // ---- LÓGICA DE KPIs ----
+    const totalPolizas = listado.length;
+    const primaTotal = listado.reduce((acumulador, p) => acumulador + (Number(p.prima) || 0), 0);
+    
+    const hoy = new Date();
+    const alertasCriticas = listado.filter(p => {
+        const fPago = new Date(p.fechaPago + 'T12:00:00');
+        const diffDias = Math.ceil((fPago - hoy) / (1000 * 60 * 60 * 24));
+        return diffDias <= 30;
+    }).length;
+
+    const kpiTotal = document.getElementById('kpi-total-polizas');
+    const kpiPrima = document.getElementById('kpi-prima-total');
+    const kpiAlertas = document.getElementById('kpi-alertas');
+
+    if (kpiTotal) kpiTotal.innerText = totalPolizas;
+    if (kpiPrima) kpiPrima.innerText = formatearDinero(primaTotal);
+    
+    if (kpiAlertas) {
+        kpiAlertas.innerText = alertasCriticas === 1 ? '1 póliza' : `${alertasCriticas} pólizas`;
+        kpiAlertas.className = alertasCriticas > 0 ? 'badge badge-red' : 'badge badge-green';
+    }
+
+    // ---- RENDERIZADO DE LISTA ----
     if (listado.length === 0) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 15px;">No hay registros en la cartera de Supabase.</div>`;
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 15px;">No hay registros en la cartera.</div>`;
         return;
     }
 
-    const formatearDinero = (num) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
-
     container.innerHTML = listado.map(p => {
-        const hoy = new Date();
         const fPago = new Date(p.fechaPago + 'T12:00:00');
         const diffTiempo = fPago - hoy;
         const diffDias = Math.ceil(diffTiempo / (1000 * 60 * 60 * 24));
@@ -288,7 +318,7 @@ async function actualizarListadoCartera() {
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 5px;">
-                    <button onclick="marcarPolizaComoPagada('${p.id}')" class="btn-primary" style="padding: 8px 12px !important; font-size: 12px; border-radius: 10px !important; background: #34C759 !important;">✅ Ya pagó</button>
+                    <button onclick="marcarPolizaComoPagada('${p.id}')" class="btn-primary" style="padding: 8px 12px !important; font-size: 12px; border-radius: 10px !important; background: var(--success) !important;">✅ Ya pagó</button>
                     <button onclick="cargarPolizaParaEditar('${p.id}')" class="btn-secondary" style="padding: 8px 12px !important; font-size: 12px; border-radius: 10px !important;">✏️ Editar</button>
                     <button onclick="eliminarPolizaDobleCheck('${p.id}')" class="btn-secondary" style="padding: 8px 12px !important; font-size: 12px; border-radius: 10px !important; color: var(--danger) !important; border-color: var(--danger) !important;">🗑️ Eliminar</button>
                 </div>
@@ -323,3 +353,4 @@ window.eliminarPolizaDobleCheck = async (id) => {
         await actualizarListadoCartera();
     }
 };
+                                               
