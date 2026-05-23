@@ -1,11 +1,11 @@
 // =========================================================================
-// SECCIÓN 1: IMPORTACIONES DE MÓDULOS Y NÚCLEO CENTRAL
+// SECCIÓN 1: IMPORTACIONES DE NÚCLEO Y CONTROLADORES CENTRALES
 // =========================================================================
 import { DB } from './db.js';
 import { callGemini, getSupabase } from './app.js';
 
 // =========================================================================
-// SECCIÓN 2: DICCIONARIO MATRIZ DE COMISIONES POR PRODUCTO (TASAS REALES)
+// SECCIÓN 2: MATRIZ DE COMISIONES BASE POR PRODUCTO (SEGUROS MONTERREY)
 // =========================================================================
 const TablaComisiones = {
     'Star Temporal': { nn: 0.35, ry: 0.10, ramo: 'Vida' },
@@ -24,7 +24,7 @@ const TablaComisiones = {
 };
 
 // =========================================================================
-// SECCIÓN 3: MATRIZ DE METAS DEL TRAINING ALLOWANCE (CUADERNO TABLA 2)
+// SECCIÓN 3: TABULADOR DE REQUERIMIENTOS TRAINING ALLOWANCE (TABLA 2)
 // =========================================================================
 const MetasTraining = {
     1: { comision: 9000, vidas: 3 },
@@ -33,7 +33,7 @@ const MetasTraining = {
     4: { comision: 27000, vidas: 12 },
     5: { comision: 33000, vidas: 14 },
     6: { comision: 40000, vidas: 15 },
-    7: { comision: 9000, vidas: 3 }, // Reset automático en el segundo semestre
+    7: { comision: 9000, vidas: 3 }, // Ajuste elástico por reinicio semestral
     8: { comision: 15000, vidas: 6 },
     9: { comision: 21000, vidas: 9 },
     10: { comision: 27000, vidas: 12 },
@@ -42,17 +42,16 @@ const MetasTraining = {
 };
 
 // =========================================================================
-// SECCIÓN 4: FUNCIÓN DE RENDERIZADO BASE (CONTENEDOR ASÍNCRONO ELESTIAL)
+// SECCIÓN 4: FUNCIÓN DE INYECCIÓN DE INTERFAZ BASE (CARGA ASÍNCRONA)
 // =========================================================================
 export function renderComisiones() {
-    // Retorna un contenedor limpio. La base de datos decidirá qué vista inyectar aquí dentro.
     return `<div id="comisiones-bi-container" style="min-height: 60vh;">
                 <div style="text-align:center; padding:40px; color:var(--text-secondary);">Sincronizando wallet multidispositivo...</div>
             </div>`;
 }
 
 // =========================================================================
-// SECCIÓN 5: ORQUESTADOR CENTRAL Y CONSULTAS A LA NUBE (SUPABASE)
+// SECCIÓN 5: ENLACE DE EVENTOS Y PERSISTENCIA DE DATOS EN LA NUBE
 // =========================================================================
 export async function bindComisionesEvents() {
     const container = document.getElementById('comisiones-bi-container');
@@ -60,29 +59,28 @@ export async function bindComisionesEvents() {
 
     const supabase = getSupabase();
     if (!supabase) {
-        container.innerHTML = `<div class="card" style="color:var(--danger);">Error: No se pudo establecer conexión con Supabase.</div>`;
+        container.innerHTML = `<div class="card" style="color:var(--danger);">Error: Sin conexión con el servidor Supabase.</div>`;
         return;
     }
 
-    // Obtener información del usuario autenticado actualmente
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Consultar si el registro de perfil ya existe en la tabla remota
+    // Lectura directa en la base de datos de la configuración multidispositivo
     const { data: perfiles, error: errFetch } = await supabase
         .from('perfil_asesor')
         .select('*')
         .eq('user_id', user.id);
 
     if (errFetch) {
-        container.innerHTML = `<div class="card" style="color:var(--danger);">Error al consultar la base de datos: ${errFetch.message}</div>`;
+        container.innerHTML = `<div class="card" style="color:var(--danger);">Falla de lectura remota: ${errFetch.message}</div>`;
         return;
     }
 
     const perfil = perfiles && perfiles.length > 0 ? perfiles[0] : null;
 
     // =========================================================================
-    // SECCIÓN 6: RENDERIZADO Y LOGICA DEL FORMULARIO DE CALIBRACIÓN
+    // SECCIÓN 6: RENDERIZADO DE INTERFAZ DE CALIBRACIÓN INICIAL
     // =========================================================================
     if (!perfil) {
         container.innerHTML = `
@@ -112,14 +110,14 @@ export async function bindComisionesEvents() {
                 .from('perfil_asesor')
                 .insert([{ user_id: user.id, esquema, fecha_conexion: fecha }]);
 
-            if (errInsert) alert('Error al guardar perfil: ' + errInsert.message);
+            if (errInsert) alert('Error al guardar perfil en la nube: ' + errInsert.message);
             else window.navigateTo('comisiones');
         });
         return;
     }
 
     // =========================================================================
-    // SECCIÓN 7: RENDERIZADO DEL TABLERO FINANCIERO (WIDGETS ESTILO IOS)
+    // SECCIÓN 7: VISTA DE CONTROL DE TRABAJO FINANCIERO Y CARDS DE PRODUCCIÓN
     // =========================================================================
     container.innerHTML = `
         <div class="widget-grid">
@@ -128,7 +126,7 @@ export async function bindComisionesEvents() {
                     <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">⚙️ MODO DESARROLLADOR:</span>
                     <button id="btn-reset-conexion" style="width: auto; padding: 4px 10px !important; font-size: 11px; background: var(--danger) !important; color: white !important; border: none;">Resetear Fecha Conexión</button>
                 </div>
-                <p style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">Esquema activo: <strong>${perfil.esquema}</strong> | Conexión en la Nube: <strong>${perfil.fecha_conexion}</strong></p>
+                <p style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">Esquema activo: <strong>${perfil.esquema}</strong> | Sincronizado: <strong>${perfil.fecha_conexion}</strong></p>
             </div>
 
             <div class="widget widget-full" style="background: var(--accent); color: white; border: none;">
@@ -169,9 +167,8 @@ export async function bindComisionesEvents() {
         </div>
     `;
 
-    // Escuchador para borrar el perfil físicamente de la base de datos remota
     document.getElementById('btn-reset-conexion').addEventListener('click', async () => {
-        if (confirm("⚠️ ¿Confirmas la eliminación irreversible de tus parámetros de conexión en la nube?")) {
+        if (confirm("⚠️ ¿Confirmas la eliminación de tus parámetros comerciales en la nube?")) {
             const { error: errDel } = await supabase.from('perfil_asesor').delete().eq('user_id', user.id);
             if (errDel) alert('Error al resetear: ' + errDel.message);
             else window.navigateTo('comisiones');
@@ -179,9 +176,12 @@ export async function bindComisionesEvents() {
     });
 
     // =========================================================================
-    // SECCIÓN 8: PROCESAMIENTO MATEMÁTICO DE REGISTROS DE CARTERA
+    // SECCIÓN 8: PROCESAMIENTO ACTUARIAL BLINDADO (ANTI DATOS CORRUPTOS NAN)
     // =========================================================================
     const listado = await DB.obtenerTodos('cartera');
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+
     const fConexion = new Date(perfil.fecha_conexion + 'T12:00:00');
     const diffTiempo = hoy - fConexion;
     let mesConcurso = Math.floor(diffTiempo / (1000 * 60 * 60 * 24 * 30.44)) + 1;
@@ -199,16 +199,21 @@ export async function bindComisionesEvents() {
 
     listado.forEach((p, idx) => {
         if (!p.emision) return;
+        
         const fEmision = new Date(p.emision + 'T12:00:00');
         const mesesAntiguedad = (hoy - fEmision) / (1000 * 60 * 60 * 24 * 30.44);
-        const tasa = TablaComisiones[p.plan] || { nn: 0.10, ry: 0.05, ramo: 'Vida' };
+        
+        const planLimpio = (p.plan || '').trim();
+        const tasa = TablaComisiones[planLimpio] || { nn: 0.10, ry: 0.05, ramo: 'Vida' };
         
         let factorFraccion = 1;
         if (p.formaPago === 'Mensual') factorFraccion = 1/12;
         else if (p.formaPago === 'Trimestral') factorFraccion = 1/4;
         else if (p.formaPago === 'Semestral') factorFraccion = 1/2;
 
-        const primaReciboFraccionada = (Number(p.prima) || 0) * factorFraccion;
+        // Limpieza de caracteres de texto en primas para evitar rupturas matemáticas
+        const primaNetaNumerica = Number(String(p.prima).replace(/[^0-9.-]+/g,"")) || 0;
+        const primaReciboFraccionada = primaNetaNumerica * factorFraccion;
         let gananciaCalculada = 0;
 
         if (mesesAntiguedad <= 12) {
@@ -217,10 +222,10 @@ export async function bindComisionesEvents() {
             comisionInicialMes += gananciaCalculada;
 
             if (!p.esPersonal) {
-                if (tasa.ramo === 'GMM' && Number(p.prima) >= 10000) {
+                if (tasa.ramo === 'GMM' && primaNetaNumerica >= 10000) {
                     puntosConcursoValidos += 0.5;
                 } else if (tasa.ramo === 'Vida') {
-                    puntosConcursoValidos += (Number(p.prima) >= 65001) ? 2 : 1;
+                    puntosConcursoValidos += (primaNetaNumerica >= 65001) ? 2 : 1;
                 }
             }
         } else {
@@ -228,10 +233,11 @@ export async function bindComisionesEvents() {
             comisionRenovacionMes += gananciaCalculada;
         }
 
-        barrasValores[idx % 6] += gananciaCalculada;
+        if (!isNaN(gananciaCalculada)) {
+            barrasValores[idx % 6] += gananciaCalculada;
+        }
     });
 
-    // Despliegue de variables procesadas en la interfaz de usuario
     document.getElementById('fin-total').innerText = formatear(comisionInicialMes + comisionRenovacionMes);
     document.getElementById('fin-inicial').innerText = formatear(comisionInicialMes);
     document.getElementById('fin-renovacion').innerText = formatear(comisionRenovacionMes);
@@ -274,7 +280,7 @@ export async function bindComisionesEvents() {
     }
 
     // =========================================================================
-    // SECCIÓN 9: DIBUJADO DE LA GRÁFICA E INTEGRACIÓN SINTÉTICA DE LA IA
+    // SECCIÓN 9: TRAZADO DE GRÁFICA DE HISTOGRAMA Y DISPARADOR DIRECTO DE IA
     // =========================================================================
     const valorMaximoG = Math.max(...barrasValores, 1);
     document.getElementById('chart-container').innerHTML = barrasValores.map(v => {

@@ -1,6 +1,7 @@
 // =========================================================================
-// SECCIÓN 1: IMPORTACIONES DE MÓDULOS DEL CRM
+// SECCIÓN 1: IMPORTACIONES DE MÓDULOS DE NEGOCIO Y BASE DE DATOS
 // =========================================================================
+import { DB } from './db.js';
 import { renderDashboard, bindDashboardEvents } from './dashboard.js';
 import { renderProspeccion, bindProspeccionEvents } from './prospeccion.js';
 import { renderReferidos, bindReferidosEvents } from './referidos.js';
@@ -9,7 +10,7 @@ import { renderCartera, bindCarteraEvents } from './cartera.js';
 import { renderComisiones, bindComisionesEvents } from './comisiones.js';
 
 // =========================================================================
-// SECCIÓN 2: CONFIGURACIÓN DE SUPABASE
+// SECCIÓN 2: PARÁMETROS GLOBALES DE CONEXIÓN A SUPABASE
 // =========================================================================
 const supabaseUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts';
@@ -18,7 +19,7 @@ let supabase = null;
 export const getSupabase = () => supabase;
 
 // =========================================================================
-// SECCIÓN 3: MOTOR DE IA - CONEXIÓN CON SUPABASE PROXY (DIAGNÓSTICO FULL)
+// SECCIÓN 3: CONECTOR DE INTELIGENCIA ARTIFICIAL A TRAVÉS DE EDGE FUNCTION
 // =========================================================================
 export async function callGemini(prompt, outputId) {
     const outputEl = document.getElementById(outputId);
@@ -34,7 +35,7 @@ export async function callGemini(prompt, outputId) {
         });
 
         if (error) throw new Error(error.message || JSON.stringify(error));
-        if (!data) throw new Error("Supabase respondió con datos vacíos (data = null).");
+        if (!data) throw new Error("Supabase respondió con datos vacíos.");
         
         let textoRespuesta = data.respuesta || data.text;
 
@@ -48,7 +49,7 @@ export async function callGemini(prompt, outputId) {
         }
 
         if (!textoRespuesta) {
-            throw new Error("Formato desconocido. RAW DATA RECIBIDO: " + JSON.stringify(data));
+            throw new Error("Formato desconocido de respuesta: " + JSON.stringify(data));
         }
 
         const textoFormateado = textoRespuesta.replace(/\n/g, '<br>');
@@ -56,18 +57,15 @@ export async function callGemini(prompt, outputId) {
         return textoFormateado;
 
     } catch (err) {
-        console.error("Falla detectada:", err);
+        console.error("Falla detectada en motor central:", err);
         if (outputEl) {
-            outputEl.innerHTML = `
-                <div style="color:var(--danger); font-size:12px;">
-                    <strong>⚠️ Error:</strong><br>${err.message || err}
-                </div>`;
+            outputEl.innerHTML = `<div style="color:var(--danger); font-size:12px;"><strong>⚠️ Error:</strong><br>${err.message || err}</div>`;
         }
     }
 }
 
 // =========================================================================
-// SECCIÓN 4: FUNCIONES DE AUTH Y SESIÓN
+// SECCIÓN 4: CONTROLADORES DE ACCESO Y SESIONES AUTOMATIZADAS (AUTH)
 // =========================================================================
 function inicializarSupabase() {
     if (window.supabase) {
@@ -90,7 +88,7 @@ window.loginConGoogle = async () => {
 };
 
 // =========================================================================
-// SECCIÓN 5: INTERFAZ MODO OSCURO / CLARO
+// SECCIÓN 5: INTERRUPTOR DE APARIENCIA VISUAL (THEME CONTROL)
 // =========================================================================
 window.toggleTheme = () => {
     const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -99,7 +97,7 @@ window.toggleTheme = () => {
 };
 
 // =========================================================================
-// SECCIÓN 6: ENRUTADOR DINÁMICO DE NAVEGACIÓN
+// SECCIÓN 6: ENRUTADOR DE NAVEGACIÓN DE PANTALLA ÚNICA (SPA)
 // =========================================================================
 window.navigateTo = function(moduleName) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -121,7 +119,7 @@ window.navigateTo = function(moduleName) {
 };
 
 // =========================================================================
-// SECCIÓN 7: INICIALIZACIÓN GLOBAL (DOM READY Y VISIBILIDAD DE BURBUJA)
+// SECCIÓN 7: CARGA INICIAL DE LA APLICACIÓN Y VALIDACIÓN DE PRIVILEGIOS
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -155,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const contentArea = document.getElementById('app-content');
     if (!supabase) {
-        contentArea.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-secondary);">Error crítico: Base de datos no cargada.</div>`;
+        contentArea.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-secondary);">Error crítico: Base de datos inaccesible.</div>`;
         return;
     }
 
@@ -165,7 +163,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!user) {
         if (navBar) navBar.style.display = 'none';
-        if (chatBubble) chatBubble.style.display = 'none'; // Ocultar si no hay sesión
+        if (chatBubble) chatBubble.style.display = 'none'; // Se mantiene oculta antes del login
         contentArea.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; padding:24px;">
                 <div class="card" style="text-align:center; width:100%; max-width:360px;">
@@ -179,13 +177,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>`;
     } else {
         if (navBar) navBar.style.display = 'flex';
-        if (chatBubble) chatBubble.style.display = 'flex'; // Mostrar únicamente tras loguearse
+        if (chatBubble) chatBubble.style.display = 'flex'; // Activación visible tras autenticación
         window.navigateTo('dashboard');
         resetInactivityTimer();
     }
 
     // =========================================================================
-    // SECCIÓN 8: CONTROLADOR DEL CHATBOT CON ALINEACIÓN iMESSAGE Y MODELO DE IA
+    // SECCIÓN 8: INTEGRACIÓN DE CONTEXTO INVISIBLE Y CONTROLADOR DEL CHATBOT
     // =========================================================================
     const bubble = document.getElementById('ai-chat-bubble');
     const windowChat = document.getElementById('ai-chat-window');
@@ -201,7 +199,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         msgContainer.scrollTop = msgContainer.scrollHeight;
     };
 
-    // Alternar visibilidad de la ventana flotante
     bubble.addEventListener('click', () => {
         windowChat.style.display = windowChat.style.display === 'flex' ? 'none' : 'flex';
         if (windowChat.style.display === 'flex') {
@@ -212,20 +209,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     closeBtn.addEventListener('click', () => windowChat.style.display = 'none');
 
-    // Procesamiento centralizado del mensaje enviado por el usuario
     async function procesarMensajeChat() {
         const userMsg = chatInput.value.trim();
         if (!userMsg) return;
         chatInput.value = '';
 
-        // 1. Renderizar fila y burbuja del usuario (Alineación Derecha)
         msgContainer.innerHTML += `
             <div class="msg-row user-row">
                 <div class="chat-bubble user-bubble">${userMsg}</div>
             </div>`;
         scrollChatToBottom();
 
-        // 2. Crear ID dinámico y renderizar fila de la IA (Alineación Izquierda)
         const uniqueResId = 'ia-res-' + Date.now();
         msgContainer.innerHTML += `
             <div class="msg-row ia-row">
@@ -233,36 +227,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>`;
         scrollChatToBottom();
 
-        // 3. Prompt de Mentoria e Inyección de Reglas de Negocio de Seguros Monterrey
+        // Extracción asíncrona de datos locales para la inyección de contexto en la IA
+        const cartera = await DB.obtenerTodos('cartera');
+        const resumenCartera = cartera.map(p => `[Cliente: ${p.cliente} | Plan: ${p.plan} | Prima: $${p.prima} ${p.moneda} | Emisión: ${p.emision} | Próximo Pago: ${p.fechaPago} | Frecuencia: ${p.formaPago}]`).join('\n');
+
         const promptEstructural = `
-            Actúas como un coach, mentor y promotor altamente exitoso en el sector de seguros de Seguros Monterrey New York Life. 
-            Tu objetivo es dar respuestas claras, prácticas y estratégicas. Conoces a la perfección las tasas de comisión inicial (Primer Año):
-            - Star Temporal: 35%
-            - Orvi 99: 44%
-            - Respaldo Educativo: 35%
-            - Segubeca: 37%
-            - Respaldo Negocio: 35%
-            - Mío: 80%
-            - Imagina Ser: 35%
-            - Objetivo Vida: 44%
-            - Nuevo Plenitud: 35%
-            - Vida Mujer: 40%
-            - Alfa Medical (GMM): 17%
-            - Alfa Medical Flex (GMM): 15%
-            - Alfa Medical Internacional (GMM): 17%
+            Actúas como un coach, mentor y promotor altamente exitoso en el sector de seguros de Seguros Monterrey New York Life.
+            Tienes acceso a la base de datos de pólizas de la app del asesor en tiempo real para resolver dudas de cobranza, renovaciones o auditoría:
+            ${resumenCartera || 'La cartera actual se encuentra vacía.'}
 
-            Regla Operativa Crítica: Si el usuario es un Asesor en Desarrollo y pregunta por productos de Vida, recuerda que las pólizas emiten y participan al 90% del diseño del producto base por reglas actuariales del cuaderno (las comisiones se multiplican por 0.90).
-            Evita introducciones largas o motivación vacía. Responde directamente la pregunta del asesor de forma concisa: "${userMsg}"`;
+            Conoces a la perfección las tasas de comisión inicial (Primer Año) de la compañía:
+            - Star Temporal: 35% | Orvi 99: 44% | Respaldo Educativo: 35% | Segubeca: 37% | Respaldo Negocio: 35% | Mío: 80% | Imagina Ser: 35% | Objetivo Vida: 44% | Nuevo Plenitud: 35% | Vida Mujer: 40%
+            - Alfa Medical (GMM): 17% | Alfa Medical Flex: 15% | Alfa Medical Internacional: 17%
 
-        // 4. Invocar el motor centralizado
+            Regla Operativa Crítica: Si el usuario se encuentra bajo el esquema de Asesor en Desarrollo y pregunta por productos del ramo de Vida, las comisiones emitidas participan al 90% del diseño del producto base por reglas actuariales del cuaderno de concursos (debes multiplicar el resultado por 0.90).
+            Evita introducciones largas, saludos informales o motivación vacía. Responde la consulta de forma directa, analítica y concisa: "${userMsg}"`;
+
         await callGemini(promptEstructural, uniqueResId);
-        
-        // Alerta sonora sutil de fin de proceso
         notificationSound.play().catch(() => {});
         scrollChatToBottom();
     }
 
-    // Escuchadores de eventos para el disparador de envío (Tecla Enter y Botón)
     chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') procesarMensajeChat(); });
     if (chatSend) chatSend.addEventListener('click', procesarMensajeChat);
 });
