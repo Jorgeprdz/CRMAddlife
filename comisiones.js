@@ -1,12 +1,7 @@
-// =========================================================================
-// SECCIÓN 1: IMPORTACIONES DE NÚCLEO Y CONTROLADORES CENTRALES
-// =========================================================================
+// comisiones.js - Motor Financiero Corregido
 import { DB } from './db.js';
 import { callGemini, getSupabase } from './app.js';
 
-// =========================================================================
-// SECCIÓN 2: MATRIZ DE COMISIONES BASE POR PRODUCTO (SEGUROS MONTERREY)
-// =========================================================================
 const TablaComisiones = {
     'Star Temporal': { nn: 0.35, ry: 0.10, ramo: 'Vida' },
     'Orvi 99': { nn: 0.44, ry: 0.15, ramo: 'Vida' },
@@ -23,284 +18,192 @@ const TablaComisiones = {
     'Alfa Medical Internacional': { nn: 0.17, ry: 0.10, ramo: 'GMM' }
 };
 
-// =========================================================================
-// SECCIÓN 3: TABULADOR DE REQUERIMIENTOS TRAINING ALLOWANCE (TABLA 2)
-// =========================================================================
+// Tabla 2 del Cuaderno ajustada a escalones reales
 const MetasTraining = {
     1: { comision: 9000, vidas: 3 },
     2: { comision: 15000, vidas: 6 },
     3: { comision: 21000, vidas: 9 },
-    4: { comision: 27000, vidas: 12 },
-    5: { comision: 33000, vidas: 14 },
-    6: { comision: 40000, vidas: 15 },
-    7: { comision: 9000, vidas: 3 }, // Ajuste elástico por reinicio semestral
+    4: { comision: 31000, vidas: 12 },
+    5: { comision: 39000, vidas: 14 },
+    6: { comision: 50000, vidas: 15 },
+    7: { comision: 9000, vidas: 3 },
     8: { comision: 15000, vidas: 6 },
     9: { comision: 21000, vidas: 9 },
-    10: { comision: 27000, vidas: 12 },
-    11: { comision: 33000, vidas: 14 },
-    12: { comision: 40000, vidas: 15 }
+    10: { comision: 31000, vidas: 12 },
+    11: { comision: 39000, vidas: 14 },
+    12: { comision: 50000, vidas: 15 }
 };
 
-// =========================================================================
-// SECCIÓN 4: FUNCIÓN DE INYECCIÓN DE INTERFAZ BASE (CARGA ASÍNCRONA)
-// =========================================================================
 export function renderComisiones() {
     return `<div id="comisiones-bi-container" style="min-height: 60vh;">
-                <div style="text-align:center; padding:40px; color:var(--text-secondary);">Sincronizando wallet multidispositivo...</div>
+                <div style="text-align:center; padding:40px; color:var(--text-secondary);">Sincronizando motor financiero...</div>
             </div>`;
 }
 
-// =========================================================================
-// SECCIÓN 5: ENLACE DE EVENTOS Y PERSISTENCIA DE DATOS EN LA NUBE
-// =========================================================================
 export async function bindComisionesEvents() {
     const container = document.getElementById('comisiones-bi-container');
     if (!container) return;
 
     const supabase = getSupabase();
     if (!supabase) {
-        container.innerHTML = `<div class="card" style="color:var(--danger);">Error: Sin conexión con el servidor Supabase.</div>`;
+        container.innerHTML = `<div class="card" style="color:var(--danger);">Error: Sin conexión a BD.</div>`;
         return;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Lectura directa en la base de datos de la configuración multidispositivo
-    const { data: perfiles, error: errFetch } = await supabase
-        .from('perfil_asesor')
-        .select('*')
-        .eq('user_id', user.id);
-
-    if (errFetch) {
-        container.innerHTML = `<div class="card" style="color:var(--danger);">Falla de lectura remota: ${errFetch.message}</div>`;
-        return;
-    }
-
+    const { data: perfiles } = await supabase.from('perfil_asesor').select('*').eq('user_id', user.id);
     const perfil = perfiles && perfiles.length > 0 ? perfiles[0] : null;
 
-    // =========================================================================
-    // SECCIÓN 6: RENDERIZADO DE INTERFAZ DE CALIBRACIÓN INICIAL
-    // =========================================================================
     if (!perfil) {
         container.innerHTML = `
             <div class="card" style="border-left: 4px solid var(--accent);">
-                <h2>⚙️ Calibración del Cuaderno de Concursos</h2>
-                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px;">Guarda tus parámetros en la nube para sincronizar tus metas en todos tus dispositivos.</p>
+                <h2>⚙️ Calibración de Cuaderno</h2>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <select id="cfg-esquema">
                         <option value="Desarrollo">Asesor en Desarrollo (Mes 1 a 12)</option>
                         <option value="Profesional">Nuevo Profesional (Mes 13+)</option>
                     </select>
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 11px; color: var(--text-secondary);">Fecha de Conexión Comercial</label>
-                        <input type="date" id="cfg-fecha">
-                    </div>
-                    <button id="btn-guardar-perfil" class="btn-primary" style="margin-top: 10px;">Iniciar Motor Financiero</button>
+                    <input type="date" id="cfg-fecha">
+                    <button id="btn-guardar-perfil" class="btn-primary">Iniciar Motor</button>
                 </div>
-            </div>
-        `;
+            </div>`;
 
         document.getElementById('btn-guardar-perfil').addEventListener('click', async () => {
             const esquema = document.getElementById('cfg-esquema').value;
             const fecha = document.getElementById('cfg-fecha').value;
-            if (!fecha) return alert('Debes ingresar tu fecha de conexión.');
-
-            const { error: errInsert } = await supabase
-                .from('perfil_asesor')
-                .insert([{ user_id: user.id, esquema, fecha_conexion: fecha }]);
-
-            if (errInsert) alert('Error al guardar perfil en la nube: ' + errInsert.message);
-            else window.navigateTo('comisiones');
+            if (!fecha) return alert('Debes ingresar fecha.');
+            await supabase.from('perfil_asesor').insert([{ user_id: user.id, esquema, fecha_conexion: fecha }]);
+            window.navigateTo('comisiones');
         });
         return;
     }
 
-    // =========================================================================
-    // SECCIÓN 7: VISTA DE CONTROL DE TRABAJO FINANCIERO Y CARDS DE PRODUCCIÓN
-    // =========================================================================
+    // Interfaz del Dashboard (Mantenemos la estructura UI exacta)
     container.innerHTML = `
         <div class="widget-grid">
-            <div class="widget widget-full" style="padding: 10px 16px; border: 1px dashed var(--danger); background: rgba(255,59,48,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600;">⚙️ MODO DESARROLLADOR:</span>
-                    <button id="btn-reset-conexion" style="width: auto; padding: 4px 10px !important; font-size: 11px; background: var(--danger) !important; color: white !important; border: none;">Resetear Fecha Conexión</button>
+            <div class="widget widget-full" style="padding:10px 16px; border:1px dashed var(--danger); background:rgba(255,59,48,0.05);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:11px; font-weight:600;">⚙️ MODO DESARROLLADOR:</span>
+                    <button id="btn-reset-conexion" style="padding:4px 10px !important; font-size:11px; background:var(--danger) !important; color:white !important; border:none;">Reset</button>
                 </div>
-                <p style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">Esquema activo: <strong>${perfil.esquema}</strong> | Sincronizado: <strong>${perfil.fecha_conexion}</strong></p>
+                <p style="font-size:10px; margin-top:2px;">Esquema: <strong>${perfil.esquema}</strong> | Nube: <strong>${perfil.fecha_conexion}</strong></p>
             </div>
-
-            <div class="widget widget-full" style="background: var(--accent); color: white; border: none;">
-                <span class="widget-title" style="color: rgba(255,255,255,0.85);">Ganancias Netas Globales (YTD)</span>
+            <div class="widget widget-full" style="background: var(--accent); color: white;">
+                <span class="widget-title" style="color: rgba(255,255,255,0.85);">Ganancias Mensuales (Actuales)</span>
                 <span id="fin-total" class="widget-value" style="color: white; font-size: 26px;">$0.00</span>
-                <span style="font-size: 11px; margin-top: 4px; opacity: 0.9;">Iniciales vigentes + Renovaciones acumuladas</span>
             </div>
-
-            <div class="widget">
-                <span class="widget-title">Comisiones Iniciales</span>
-                <span id="fin-inicial" class="widget-value" style="color: var(--success);">$0.00</span>
-            </div>
-            <div class="widget">
-                <span class="widget-title">Comisiones Renovación</span>
-                <span id="fin-renovacion" class="widget-value" style="color: var(--warning);">$0.00</span>
-            </div>
-
+            <div class="widget"><span class="widget-title">Iniciales Mes</span><span id="fin-inicial" class="widget-value" style="color: var(--success);">$0.00</span></div>
+            <div class="widget"><span class="widget-title">Renovación Mes</span><span id="fin-renovacion" class="widget-value" style="color: var(--warning);">$0.00</span></div>
             <div class="widget widget-full">
                 <span class="widget-title" id="titulo-bono">Bono del Mes</span>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span id="fin-bono-proyectado" class="widget-value">$0.00</span>
-                    <span id="fin-puntos" class="badge badge-blue" style="font-size: 13px; padding: 4px 10px;">0 Puntos</span>
+                    <span id="fin-puntos" class="badge badge-blue">0 Puntos</span>
                 </div>
-                <p id="brecha-bono" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; line-height: 1.4;"></p>
+                <p id="brecha-bono" style="font-size: 12px; margin-top: 8px;"></p>
             </div>
-
             <div class="widget widget-full">
-                <span class="widget-title">Histórico de Ingresos (6 Meses)</span>
-                <div id="chart-container" style="display: flex; align-items: flex-end; gap: 8px; height: 110px; margin-top: 15px; padding-bottom: 5px; border-bottom: 1px solid var(--separator);"></div>
-                <div id="chart-labels" style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 9px; color: var(--text-secondary);"></div>
+                <span class="widget-title">Histórico Real (Últimos 6 meses)</span>
+                <div id="chart-container" style="display:flex; align-items:flex-end; gap:8px; height:110px; margin-top:15px; border-bottom:1px solid var(--separator);"></div>
+                <div id="chart-labels" style="display:flex; justify-content:space-between; margin-top:6px; font-size:9px;"></div>
             </div>
-
-            <div class="widget widget-full" style="background: var(--surface-2);">
-                <span class="widget-title">💡 Tips y Recomendaciones</span>
-                <button id="btn-ia-estrategia" class="btn-secondary" style="font-size: 12px; padding: 8px; border-color: var(--accent); color: var(--accent); margin-bottom: 8px;">✨ Generar Estrategia de Cierre</button>
-                <div id="out-estrategia" style="font-size: 13px; color: var(--text-primary); line-height: 1.5; min-height: 20px;"></div>
-            </div>
-        </div>
-    `;
+        </div>`;
 
     document.getElementById('btn-reset-conexion').addEventListener('click', async () => {
-        if (confirm("⚠️ ¿Confirmas la eliminación de tus parámetros comerciales en la nube?")) {
-            const { error: errDel } = await supabase.from('perfil_asesor').delete().eq('user_id', user.id);
-            if (errDel) alert('Error al resetear: ' + errDel.message);
-            else window.navigateTo('comisiones');
-        }
+        await supabase.from('perfil_asesor').delete().eq('user_id', user.id);
+        window.navigateTo('comisiones');
     });
 
-    // =========================================================================
-    // SECCIÓN 8: PROCESAMIENTO ACTUARIAL BLINDADO (ANTI DATOS CORRUPTOS NAN)
-    // =========================================================================
     const listado = await DB.obtenerTodos('cartera');
+    const formatear = (n) => new Intl.NumberFormat('es-MX', {style:'currency', currency:'MXN'}).format(n);
+    
     const hoy = new Date();
-    hoy.setHours(0,0,0,0);
-
     const fConexion = new Date(perfil.fecha_conexion + 'T12:00:00');
-    const diffTiempo = hoy - fConexion;
-    let mesConcurso = Math.floor(diffTiempo / (1000 * 60 * 60 * 24 * 30.44)) + 1;
+    let mesConcurso = Math.floor((hoy - fConexion) / (1000 * 60 * 60 * 24 * 30.44)) + 1;
     if (mesConcurso < 1) mesConcurso = 1;
 
     let comisionInicialMes = 0;
     let comisionRenovacionMes = 0;
     let puntosConcursoValidos = 0;
 
+    // Configurar los 6 meses reales
     const barrasValores = Array(6).fill(0);
     const barrasEtiquetas = [];
     for (let i = 5; i >= 0; i--) {
-        barrasEtiquetas.push(new Date(hoy.getFullYear(), hoy.getMonth() - i, 1).toLocaleString('es-MX', { month: 'short' }).toUpperCase());
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+        barrasEtiquetas.push(d.toLocaleString('es-MX', {month:'short'}).toUpperCase());
     }
 
-    listado.forEach((p, idx) => {
+    listado.forEach((p) => {
         if (!p.emision) return;
-        
         const fEmision = new Date(p.emision + 'T12:00:00');
-        const mesesAntiguedad = (hoy - fEmision) / (1000 * 60 * 60 * 24 * 30.44);
+        const fPago = p.fechaPago ? new Date(p.fechaPago + 'T12:00:00') : fEmision;
         
+        const añosAntiguedad = (fPago.getFullYear() - fEmision.getFullYear()) + ((fPago.getMonth() - fEmision.getMonth()) / 12);
         const planLimpio = (p.plan || '').trim();
         const tasa = TablaComisiones[planLimpio] || { nn: 0.10, ry: 0.05, ramo: 'Vida' };
         
-        let factorFraccion = 1;
-        if (p.formaPago === 'Mensual') factorFraccion = 1/12;
-        else if (p.formaPago === 'Trimestral') factorFraccion = 1/4;
-        else if (p.formaPago === 'Semestral') factorFraccion = 1/2;
+        let factorFraccion = p.formaPago === 'Mensual' ? 1/12 : p.formaPago === 'Trimestral' ? 1/4 : p.formaPago === 'Semestral' ? 1/2 : 1;
+        const primaNeta = Number(String(p.prima).replace(/[^0-9.-]+/g,"")) || 0;
+        const primaFraccionada = primaNeta * factorFraccion;
 
-        // Limpieza de caracteres de texto en primas para evitar rupturas matemáticas
-        const primaNetaNumerica = Number(String(p.prima).replace(/[^0-9.-]+/g,"")) || 0;
-        const primaReciboFraccionada = primaNetaNumerica * factorFraccion;
-        let gananciaCalculada = 0;
+        // Distribución en la gráfica basada en mes de emisión/pago real
+        const diffMeses = (hoy.getFullYear() - fPago.getFullYear()) * 12 + (hoy.getMonth() - fPago.getMonth());
+        
+        // Es póliza de primer año (Inicial)?
+        const esInicial = añosAntiguedad < 1;
+        const factorEsquema = (perfil.esquema === 'Desarrollo' && tasa.ramo === 'Vida') ? 0.90 : 1.0;
+        const ganancia = esInicial ? primaFraccionada * (tasa.nn * factorEsquema) : primaFraccionada * tasa.ry;
 
-        if (mesesAntiguedad <= 12) {
-            const factorEsquema = (perfil.esquema === 'Desarrollo' && tasa.ramo === 'Vida') ? 0.90 : 1.0;
-            gananciaCalculada = primaReciboFraccionada * (tasa.nn * factorEsquema);
-            comisionInicialMes += gananciaCalculada;
-
-            if (!p.esPersonal) {
-                if (tasa.ramo === 'GMM' && primaNetaNumerica >= 10000) {
-                    puntosConcursoValidos += 0.5;
-                } else if (tasa.ramo === 'Vida') {
-                    puntosConcursoValidos += (primaNetaNumerica >= 65001) ? 2 : 1;
+        // Si la póliza corresponde al mes en curso
+        if (diffMeses === 0) {
+            if (esInicial) {
+                comisionInicialMes += ganancia;
+                if (!p.esPersonal) {
+                    puntosConcursoValidos += (tasa.ramo === 'GMM' && primaNeta >= 10000) ? 0.5 : (primaNeta >= 65001 ? 2 : 1);
                 }
+            } else {
+                comisionRenovacionMes += ganancia;
             }
-        } else {
-            gananciaCalculada = primaReciboFraccionada * tasa.ry;
-            comisionRenovacionMes += gananciaCalculada;
         }
 
-        if (!isNaN(gananciaCalculada)) {
-            barrasValores[idx % 6] += gananciaCalculada;
+        // Si pertenece a los últimos 6 meses, asignarla a su barra correspondiente
+        if (diffMeses >= 0 && diffMeses <= 5) {
+            const indexBarra = 5 - diffMeses; // 0 es hace 5 meses, 5 es el actual
+            barrasValores[indexBarra] += ganancia;
         }
     });
 
     document.getElementById('fin-total').innerText = formatear(comisionInicialMes + comisionRenovacionMes);
     document.getElementById('fin-inicial').innerText = formatear(comisionInicialMes);
     document.getElementById('fin-renovacion').innerText = formatear(comisionRenovacionMes);
-    document.getElementById('fin-puntos').innerText = `${puntosConcursoValidos} Vidas`;
+    document.getElementById('fin-puntos').innerText = `${puntosConcursoValidos} Vidas (Mes Actual)`;
 
     const txtBrecha = document.getElementById('brecha-bono');
     const valBono = document.getElementById('fin-bono-proyectado');
     
-    let faltaComisionIA = 0;
-    let faltaVidasIA = 0;
-
     if (perfil.esquema === 'Desarrollo') {
-        document.getElementById('titulo-bono').innerText = `Training Allowance — Mes ${mesConcurso} de Concurso`;
-        const regla = MetasTraining[mesConcurso] || { comision: 40000, vidas: 15 };
-        
-        faltaComisionIA = Math.max(0, regla.comision - comisionInicialMes);
-        faltaVidasIA = Math.max(0, regla.vidas - puntosConcursoValidos);
+        document.getElementById('titulo-bono').innerText = `Training Allowance (Mes ${mesConcurso})`;
+        const regla = MetasTraining[mesConcurso] || { comision: 50000, vidas: 15 };
+        const faltaCom = Math.max(0, regla.comision - comisionInicialMes);
+        const faltaVid = Math.max(0, regla.vidas - puntosConcursoValidos);
 
-        if (faltaComisionIA === 0 && faltaVidasIA === 0) {
+        if (faltaCom === 0 && faltaVid === 0) {
             valBono.innerText = formatear(comisionInicialMes * 0.15);
-            txtBrecha.innerHTML = `<span style="color:var(--success); font-weight:600;">✅ Métricas cubiertas. Anticipo del mes asegurado.</span>`;
+            txtBrecha.innerHTML = `<span style="color:var(--success);">✅ Bono del mes asegurado.</span>`;
         } else {
             valBono.innerText = '$0.00';
-            txtBrecha.innerHTML = `Para el bono del Mes ${mesConcurso} te hacen falta: <br><strong>${formatear(faltaComisionIA)}</strong> en comisión inicial y <strong>${faltaVidasIA} puntos/vidas</strong>.`;
-        }
-    } else {
-        document.getElementById('titulo-bono').innerText = 'Bono Inicial Semestral (Nuevo Profesional)';
-        const metaMontoNP = 150000;
-        
-        faltaComisionIA = Math.max(0, metaMontoNP - comisionInicialMes);
-        faltaVidasIA = Math.max(0, 12 - puntosConcursoValidos);
-
-        if (faltaComisionIA === 0 && faltaVidasIA === 0) {
-            valBono.innerText = formatear(comisionInicialMes * 0.10);
-            txtBrecha.innerHTML = `<span style="color:var(--success); font-weight:600;">✅ Parámetros del cuaderno consolidados.</span>`;
-        } else {
-            valBono.innerText = '$0.00';
-            txtBrecha.innerHTML = `Faltan <strong>${formatear(faltaComisionIA)}</strong> en comisiones iniciales y <strong>${faltaVidasIA} casos</strong> para calificar al grupo de bono mínimo.`;
+            txtBrecha.innerHTML = `Faltan: <strong>${formatear(faltaCom)}</strong> (Comisión) y <strong>${faltaVid} vidas</strong>.`;
         }
     }
 
-    // =========================================================================
-    // SECCIÓN 9: TRAZADO DE GRÁFICA DE HISTOGRAMA Y DISPARADOR DIRECTO DE IA
-    // =========================================================================
-    const valorMaximoG = Math.max(...barrasValores, 1);
-    document.getElementById('chart-container').innerHTML = barrasValores.map(v => {
-        const pctAltura = (v / valorMaximoG) * 100;
-        return `<div style="flex: 1; background: var(--accent); border-radius: 6px 6px 0 0; height: ${pctAltura}%; position: relative; min-height: 4px;">
-                    <span style="position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--text-secondary); font-weight:600;">${Math.round(v/1000)}k</span>
-                </div>`;
-    }).join('');
-    document.getElementById('chart-labels').innerHTML = barrasEtiquetas.map(m => `<div style="flex: 1; text-align: center;">${m}</div>`).join('');
-
-    const btnIA = document.getElementById('btn-ia-estrategia');
-    if (btnIA) {
-        btnIA.addEventListener('click', () => {
-            let contextoMeta = faltaComisionIA === 0 && faltaVidasIA === 0 
-                ? "Ya llegué a la meta de mi bono de este periodo. Dime 3 acciones breves para hacer up-selling y ganar aún más."
-                : `Me hacen falta exactamente ${faltaVidasIA} puntos/vidas y $${faltaComisionIA} MXN para alcanzar la meta de mi bono.`;
-
-            const prompt = `Actúa como coach comercial de seguros Monterrey. ${contextoMeta} Dame 3 estrategias de cierre de ventas hiper-cortas, tácticas y ejecutables hoy mismo en mi cartera. Restricción estricta: Máximo 2 líneas por viñeta. No me saludes, no uses frases de motivación, ve directo a la acción táctica.`;
-            
-            callGemini(prompt, 'out-estrategia');
-        });
-    }
+    const maxG = Math.max(...barrasValores, 1);
+    document.getElementById('chart-container').innerHTML = barrasValores.map(v => 
+        `<div style="flex:1; background:var(--accent); border-radius:6px 6px 0 0; height:${(v/maxG)*100}%; position:relative; min-height:4px;">
+            <span style="position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:9px; color:var(--text-secondary);">${Math.round(v/1000)}k</span>
+        </div>`
+    ).join('');
+    document.getElementById('chart-labels').innerHTML = barrasEtiquetas.map(m => `<div style="flex:1; text-align:center;">${m}</div>`).join('');
 }

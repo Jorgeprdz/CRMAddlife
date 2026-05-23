@@ -1,113 +1,116 @@
-// prospeccion.js
-import { callGemini } from './app.js';
-import { agendarCita } from './utils.js';
+import { DB } from './db.js';
+
+let idEdicion = null;
 
 export function renderProspeccion() {
     return `
         <div class="card">
-            <h2>Perfil del Prospecto</h2>
-            <input id="p-nombre" placeholder="Nombre">
-            <input id="p-telefono" type="tel" placeholder="Teléfono">
-            <select id="p-fuente">
-                <option value="">Origen...</option>
-                <option value="Cálido">Cálido</option>
-                <option value="Tibio">Tibio</option>
-                <option value="Frío">Frío</option>
-                <option value="Referido">Referido</option>
-                <option value="Redes Sociales">Redes Sociales</option>
-            </select>
-            <select id="p-producto">
-                <option value="">Producto de interés...</option>
-                <option value="Retiro">👴 Retiro</option>
-                <option value="Ahorro">🐷 Ahorro</option>
-                <option value="Gastos Médicos Mayores">🏥 Gastos Médicos Mayores</option>
-                <option value="Protección">🛡️ Protección</option>
-            </select>
-            <textarea id="p-contexto" placeholder="Contexto (edad, ocupación, estado civil, ingresos...)" rows="3"></textarea>
-
-            <h3 style="margin-top:20px;">Estilo de Acercamiento:</h3>
-            <div class="ia-actions" style="grid-template-columns: 1fr 1fr;">
-                <button class="btn-secondary" onclick="generarEstilo('Amigable')">😊 Amigable</button>
-                <button class="btn-secondary" onclick="generarEstilo('Directo')">🎯 Directo</button>
-                <button class="btn-secondary" onclick="generarEstilo('Casual')">☕ Casual</button>
-                <button class="btn-secondary" onclick="generarEstilo('Informal')">😎 Informal</button>
+            <h2 id="pros-titulo">🎯 Nuevo Prospecto</h2>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <input id="pros-nombre" placeholder="Nombre del Prospecto">
+                <input id="pros-telefono" type="tel" placeholder="Teléfono">
+                <select id="pros-etapa">
+                    <option value="Contacto Inicial">Contacto Inicial</option>
+                    <option value="Cita Programada">Cita Programada</option>
+                    <option value="Presentación">Presentación</option>
+                    <option value="Cierre">Cierre</option>
+                </select>
+                <textarea id="pros-notas" placeholder="Notas de la oportunidad..."></textarea>
+                <button id="btn-guardar-pros" class="btn-primary">💾 Guardar Prospecto</button>
+                <button id="btn-cancelar-pros" class="btn-secondary" style="display:none;">❌ Cancelar</button>
             </div>
         </div>
-
         <div class="card">
-            <h2>Guión Sugerido</h2>
-            <div id="out-acercamiento" style="background: #F2F2F7; padding: 16px; border-radius: 16px; min-height: 80px; margin-bottom: 10px; white-space: pre-wrap;">Esperando...</div>
-            <div class="ia-actions">
-                <button onclick="copiarTexto('out-acercamiento')" class="btn-secondary">Copiar</button>
-                <button onclick="enviarWA('out-acercamiento')" class="btn-primary">Enviar por WA</button>
+            <h2>Embudo de Ventas</h2>
+            <div id="lista-prospectos" style="display:flex; flex-direction:column; gap:10px;">
+                <div style="text-align:center; color:var(--text-tertiary);">Cargando...</div>
             </div>
-        </div>
-
-        <div class="card">
-            <h2>Manejo de Objeciones</h2>
-            <textarea id="p-objecion" placeholder="Respuesta del prospecto (Ej. 'Está muy caro', 'Déjame pensarlo')" rows="2"></textarea>
-            <button id="btn-objecion" class="btn-primary">Analizar Objeción</button>
-
-            <h3 style="margin-top: 15px; font-size: 16px;">Mensaje de Respuesta (WhatsApp):</h3>
-            <div id="out-objecion-mensaje" style="background: #e6f2ff; padding: 16px; border-radius: 16px; min-height: 60px; margin-bottom: 10px; white-space: pre-wrap;">Esperando objeción...</div>
-            <div class="ia-actions">
-                <button onclick="copiarTexto('out-objecion-mensaje')" class="btn-secondary">Copiar Mensaje</button>
-                <button onclick="enviarWA('out-objecion-mensaje')" class="btn-primary">Enviar por WA</button>
-                <button id="btn-agendar-obj" class="btn-secondary" style="background: #28a745;">📅 Agendar Cita</button>
-            </div>
-
-            <h3 style="margin-top: 15px; font-size: 16px;">Análisis Psicológico y Estrategia:</h3>
-            <div id="out-objecion-analisis" style="background: #F2F2F7; padding: 16px; border-radius: 16px; min-height: 80px; white-space: pre-wrap; font-size: 14px; color: #444;">Esperando análisis...</div>
         </div>
     `;
 }
 
-export function bindProspeccionEvents() {
-    window.generarEstilo = (estilo) => {
-        const nombre = document.getElementById('p-nombre').value || 'Prospecto';
-        const fuente = document.getElementById('p-fuente').value || 'Desconocida';
-        const producto = document.getElementById('p-producto').value || 'Seguros';
-        const contexto = document.getElementById('p-contexto').value || 'Sin contexto';
+export async function bindProspeccionEvents() {
+    document.getElementById('btn-guardar-pros')?.addEventListener('click', guardarProspecto);
+    document.getElementById('btn-cancelar-pros')?.addEventListener('click', limpiarForm);
+    await cargarProspectos();
+}
 
-        // PROMPT INYECTADO CON TU IDENTIDAD
-        const prompt = `Actúa como Jorge Palacios, un asesor experto y estratega en finanzas personales de Seguros Monterrey New York Life con 5 años de experiencia. 
-        Genera UN ÚNICO mensaje de WhatsApp persuasivo, directo y utilizando storytelling para ${nombre} (Origen del contacto: ${fuente}, Interés principal: ${producto}, Contexto: ${contexto}). 
-        El estilo debe ser estrictamente: ${estilo}. 
-        Evita por completo sonar como un "vendedor de seguros tradicional" o usar frases trilladas. Tu objetivo es despertar curiosidad genuina y conseguir una cita breve. 
-        REGLA INQUEBRANTABLE: Escribe ÚNICAMENTE el texto exacto para enviar por WhatsApp. Cero introducciones, cero explicaciones previas, cero confirmaciones de que entendiste la orden. Solo el texto.`;
-
-        callGemini(prompt, 'out-acercamiento');
+async function guardarProspecto() {
+    const datos = {
+        nombre: document.getElementById('pros-nombre').value.trim(),
+        telefono: document.getElementById('pros-telefono').value.trim(),
+        etapa: document.getElementById('pros-etapa').value,
+        notas: document.getElementById('pros-notas').value.trim()
     };
 
-    document.getElementById('btn-objecion').addEventListener('click', () => {
-        const objecion = document.getElementById('p-objecion').value;
-        if (!objecion) return;
-        
-        // PROMPT PARA MANEJO DE OBJECIÓN (TEXTO)
-        const promptMensaje = `Actúa como  asesor top de Seguros Monterrey. El prospecto te dio esta objeción para no darte la cita: "${objecion}". 
-        Genera ÚNICAMENTE la respuesta de WhatsApp para manejar esta objeción de forma empática pero muy firme, usando técnica de venta consultiva para darle la vuelta y conseguir la reunión. 
-        REGLA: Cero introducciones, explicaciones ni saludos innecesarios. Solo el texto crudo listo para copiar y enviar.`;
-        callGemini(promptMensaje, 'out-objecion-mensaje');
-        
-        // PROMPT PARA ANÁLISIS PSICOLÓGICO INTERNO
-        const promptAnalisis = `Actúa como estratega comercial de seguros. Un prospecto acaba de lanzar esta objeción: "${objecion}". 
-        Haz un análisis psicológico rápido, brutal y honesto de lo que REALMENTE significa esa objeción (miedo, falta de liquidez, excusa educada, etc.) y dame 3 viñetas tácticas y agresivas de cómo rebatirla cuando lo tenga enfrente.`;
-        callGemini(promptAnalisis, 'out-objecion-analisis');
-    });
+    if (!datos.nombre) return alert('Nombre requerido.');
 
-    document.getElementById('btn-agendar-obj').addEventListener('click', () => {
-        const nombre = document.getElementById('p-nombre').value || 'Prospecto';
-        agendarCita(nombre, 'Seguimiento tras objeción');
-    });
+    try {
+        if (idEdicion) {
+            await DB.actualizar('prospectos', idEdicion, datos);
+        } else {
+            datos.id = 'pros_' + Date.now();
+            await DB.guardar('prospectos', datos);
+        }
+        limpiarForm();
+        await cargarProspectos();
+    } catch (e) { console.error(e); }
+}
 
-    window.copiarTexto = (id) => {
-        const texto = document.getElementById(id).innerText;
-        navigator.clipboard.writeText(texto).then(() => alert('Copiado con éxito'));
-    };
+async function cargarProspectos() {
+    const container = document.getElementById('lista-prospectos');
+    if (!container) return;
+    
+    const prospectos = await DB.obtenerTodos('prospectos');
+    if (prospectos.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:var(--text-secondary);">No hay prospectos en el embudo.</div>`;
+        return;
+    }
 
-    window.enviarWA = (id) => {
-        let tel = document.getElementById('p-telefono').value.replace(/\D/g, '');
-        if (tel.length < 10) return alert('Número de teléfono inválido');
-        window.open(`https://wa.me/52${tel}?text=${encodeURIComponent(document.getElementById(id).innerText)}`, '_blank');
-    };
+    container.innerHTML = prospectos.map(p => `
+        <div style="background:var(--surface-2); padding:12px; border-radius:12px; border:1px solid var(--separator); color:var(--text-primary);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:14px;">${p.nombre}</strong>
+                <span class="badge badge-orange">${p.etapa}</span>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:6px;">📞 ${p.telefono || 'N/A'}</div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                <button onclick="editarProspecto('${p.id}')" class="btn-secondary" style="padding:4px 8px !important; font-size:11px;">✏️ Editar</button>
+                <button onclick="eliminarProspecto('${p.id}')" class="btn-secondary" style="padding:4px 8px !important; font-size:11px; color:var(--danger)!important;">🗑️ Eliminar</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+window.editarProspecto = async (id) => {
+    const prospectos = await DB.obtenerTodos('prospectos');
+    const p = prospectos.find(x => x.id === id);
+    if (!p) return;
+    
+    idEdicion = id;
+    document.getElementById('pros-titulo').innerText = '✏️ Editar Prospecto';
+    document.getElementById('pros-nombre').value = p.nombre || '';
+    document.getElementById('pros-telefono').value = p.telefono || '';
+    document.getElementById('pros-etapa').value = p.etapa || 'Contacto Inicial';
+    document.getElementById('pros-notas').value = p.notas || '';
+    
+    document.getElementById('btn-guardar-pros').innerText = '🔄 Actualizar';
+    document.getElementById('btn-cancelar-pros').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.eliminarProspecto = async (id) => {
+    if (confirm('¿Eliminar este prospecto del embudo?')) {
+        await DB.eliminar('prospectos', id);
+        await cargarProspectos();
+    }
+};
+
+function limpiarForm() {
+    idEdicion = null;
+    document.getElementById('pros-titulo').innerText = '🎯 Nuevo Prospecto';
+    ['pros-nombre', 'pros-telefono', 'pros-notas'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pros-etapa').value = 'Contacto Inicial';
+    document.getElementById('btn-guardar-pros').innerText = '💾 Guardar Prospecto';
+    document.getElementById('btn-cancelar-pros').style.display = 'none';
 }
