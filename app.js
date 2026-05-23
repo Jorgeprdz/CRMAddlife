@@ -1,7 +1,8 @@
 // =========================================================================
 // SECCIÓN 1: IMPORTACIONES DE NÚCLEO
 // =========================================================================
-import { DB } from './db.js';
+import { DB, processOfflineQueue } from './db.js';
+import { showToast } from './utils.js';
 import { renderDashboard, bindDashboardEvents } from './dashboard.js';
 import { renderProspeccion, bindProspeccionEvents } from './prospeccion.js';
 import { renderReferidos, bindReferidosEvents } from './referidos.js';
@@ -109,6 +110,16 @@ window.navigateTo = function(moduleName) {
 // SECCIÓN 6: INICIALIZACIÓN
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+    // Sincronización automática de cambios acumulados offline
+    window.addEventListener('online', () => {
+        showToast('Conexión a internet detectada. Sincronizando datos...', 'info');
+        processOfflineQueue();
+    });
+
+    if (navigator.onLine) {
+        processOfflineQueue();
+    }
+
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     const toggle = document.getElementById('theme-toggle');

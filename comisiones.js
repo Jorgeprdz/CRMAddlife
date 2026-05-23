@@ -1,6 +1,7 @@
 // comisiones.js - Motor Financiero Corregido
 import { DB } from './db.js';
 import { callGemini, getSupabase } from './app.js';
+import { showToast } from './utils.js';
 
 const TablaComisiones = {
     'Star Temporal': { nn: 0.35, ry: 0.10, ramo: 'Vida' },
@@ -35,9 +36,27 @@ const MetasTraining = {
 };
 
 export function renderComisiones() {
-    return `<div id="comisiones-bi-container" style="min-height: 60vh;">
-                <div style="text-align:center; padding:40px; color:var(--text-secondary);">Sincronizando motor financiero...</div>
-            </div>`;
+    return `
+        <div id="comisiones-bi-container" style="min-height: 60vh;">
+            <div class="widget-grid">
+                <!-- Modo Desarrollador Skeleton -->
+                <div class="widget widget-full skeleton-shimmer" style="height: 50px; opacity: 0.15; border-radius: 12px; margin-bottom: 6px;"></div>
+                
+                <!-- Ganancias Widget Skeleton -->
+                <div class="widget widget-full skeleton-shimmer" style="height: 100px; opacity: 0.25;"></div>
+                
+                <!-- Widgets Pequeños Skeletons -->
+                <div class="widget skeleton-shimmer" style="height: 80px; opacity: 0.2;"></div>
+                <div class="widget skeleton-shimmer" style="height: 80px; opacity: 0.2;"></div>
+                
+                <!-- Bono Widget Skeleton -->
+                <div class="widget widget-full skeleton-shimmer" style="height: 110px; opacity: 0.22;"></div>
+                
+                <!-- Historico Widget Skeleton -->
+                <div class="widget widget-full skeleton-shimmer" style="height: 160px; opacity: 0.18;"></div>
+            </div>
+        </div>
+    `;
 }
 
 export async function bindComisionesEvents() {
@@ -73,7 +92,7 @@ export async function bindComisionesEvents() {
         document.getElementById('btn-guardar-perfil').addEventListener('click', async () => {
             const esquema = document.getElementById('cfg-esquema').value;
             const fecha = document.getElementById('cfg-fecha').value;
-            if (!fecha) return alert('Debes ingresar fecha.');
+            if (!fecha) return showToast('Debes ingresar la fecha de conexión.', 'warning');
             await supabase.from('perfil_asesor').insert([{ user_id: user.id, esquema, fecha_conexion: fecha }]);
             window.navigateTo('comisiones');
         });

@@ -1,6 +1,7 @@
 // prospeccion.js - Generador Avanzado de Guiones y Rebatidor de Objeciones
 import { DB } from './db.js';
 import { callGemini } from './app.js';
+import { showToast, showConfirm } from './utils.js';
 
 let idEdicion = null;
 
@@ -72,7 +73,10 @@ export function renderProspeccion() {
 
         <div class="card">
             <h2>Embudo Activo de Prospectos</h2>
-            <div id="lista-prospectos" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <div id="lista-prospectos" style="display:flex; flex-direction:column; gap:10px;">
+                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.15; height: 60px;"></div>
+                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.15; height: 60px;"></div>
+            </div>
         </div>
     `;
 }
@@ -102,7 +106,7 @@ async function guardarProspecto() {
         temperatura: document.getElementById('pros-temperatura').value,
         notas: document.getElementById('pros-notas').value.trim()
     };
-    if (!datos.nombre) return alert('El nombre es obligatorio.');
+    if (!datos.nombre) return showToast('El nombre es obligatorio.', 'warning');
 
     if (idEdicion) {
         await DB.actualizar('prospectos', idEdicion, datos);
@@ -159,7 +163,7 @@ window.generarGuionApertura = async (enfoque) => {
 
 window.rebatirObjecionIA = async () => {
     const objecion = document.getElementById('pros-objecion-txt').value;
-    if (!objecion) return alert('Ingresa una objecion primero.');
+    if (!objecion) return showToast('Ingresa una objeción primero.', 'warning');
 
     const prompt = `Actúas como el cerrador de seguros más empático, inteligente y hábil del mundo. 
         El cliente me acaba de poner esta objeción: "${objecion}".
@@ -174,14 +178,14 @@ window.rebatirObjecionIA = async () => {
 window.enviarWhatsApp = (inputTelId, containerTextoId) => {
     const tel = document.getElementById(inputTelId).value.replace(/[^0-9]/g, '');
     const txt = document.getElementById(containerTextoId).innerText;
-    if (!tel) return alert('Falta el número telefónico.');
+    if (!tel) return showToast('Falta el número telefónico.', 'warning');
     window.open(`https://wa.me/52${tel}?text=${encodeURIComponent(txt)}`, '_blank');
 };
 
 window.copiarTexto = (containerId) => {
     const txt = document.getElementById(containerId).innerText;
     navigator.clipboard.writeText(txt);
-    alert('Copiado al portapapeles.');
+    showToast('Copiado al portapapeles.', 'success');
 };
 
 window.abrirGoogleCalendarMeet = () => {
@@ -204,7 +208,11 @@ window.cargarParaEditar = async (id) => {
 };
 
 window.eliminarProspecto = async (id) => {
-    if(confirm('¿Eliminar prospecto del pipeline?')) { await DB.eliminar('prospectos', id); await cargarProspectos(); }
+    const seguro = await showConfirm('¿Estás seguro de que deseas eliminar este prospecto de tu pipeline de ventas?', 'Eliminar Prospecto', 'Eliminar', true);
+    if (seguro) {
+        await DB.eliminar('prospectos', id);
+        await cargarProspectos();
+    }
 };
 
 function limpiarForm() {

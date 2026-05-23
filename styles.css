@@ -205,3 +205,170 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
     font-weight: 700;
     color: var(--text-primary);
 }
+
+/* =========================================================================
+   SISTEMA DE NOTIFICACIONES TOASTS Y DIÁLOGOS PERSONALIZADOS ONE UI 8.5
+   ========================================================================= */
+
+/* Contenedor Flotante de Toasts */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    width: calc(100% - 32px);
+    max-width: 400px;
+}
+
+/* Tarjeta individual de Toast */
+.toast {
+    background: var(--surface);
+    color: var(--text-primary);
+    border: 1px solid var(--separator);
+    box-shadow: var(--shadow-float);
+    border-radius: 16px;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.3s forwards 2.7s;
+}
+
+.toast-success { border-left: 5px solid var(--success); }
+.toast-danger { border-left: 5px solid var(--danger); }
+.toast-warning { border-left: 5px solid var(--warning); }
+.toast-info { border-left: 5px solid var(--accent); }
+
+@keyframes slideInDown {
+    from { transform: translateY(-40px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Overlay de Diálogos One UI (iOS Style) */
+.dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    animation: dialogFadeIn 0.25s forwards cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dialog-box {
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 20px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: var(--shadow-float);
+    border: 1px solid var(--separator);
+    text-align: center;
+    transform: scale(0.9);
+    animation: dialogScaleIn 0.28s forwards cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dialog-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.dialog-message {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    margin-bottom: 18px;
+}
+
+.dialog-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.dialog-btn {
+    flex: 1;
+    padding: 10px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    border: none !important;
+    cursor: pointer;
+    width: 100% !important;
+}
+
+.dialog-btn-cancel {
+    background: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--separator) !important;
+}
+
+.dialog-btn-confirm {
+    background: var(--accent) !important;
+    color: white !important;
+}
+
+.dialog-btn-danger {
+    background: var(--danger) !important;
+    color: white !important;
+}
+
+@keyframes dialogFadeIn { to { opacity: 1; } }
+@keyframes dialogScaleIn { to { transform: scale(1); } }
+@keyframes dialogFadeOut { to { opacity: 0; } }
+@keyframes dialogScaleOut { to { transform: scale(0.9); } }
+
+/* Esqueleto de Carga Animado (Shimmer / Skeleton) */
+.skeleton-shimmer {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--separator) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: shimmerPulse 1.5s infinite linear;
+}
+
+@keyframes shimmerPulse {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.skeleton-text {
+    height: 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.skeleton-title {
+    height: 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    width: 60%;
+}
+
+.skeleton-widget {
+    height: 80px;
+    border-radius: 22px;
+}
+
+.skeleton-row {
+    height: 48px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}

@@ -2,9 +2,38 @@
 import { DB } from './db.js';
 
 export function renderDashboard() {
-    return `<div id="dashboard-container" style="display: flex; flex-direction: column; gap: 4px;">
-                <div style="text-align: center; color: var(--text-tertiary); padding: 20px;">Sincronizando analítica de negocio...</div>
-            </div>`;
+    return `
+        <div id="dashboard-container" style="display: flex; flex-direction: column; gap: 4px;">
+            <!-- Skeleton Card 1: Saludo -->
+            <div class="skeleton-card skeleton-shimmer" style="height: 90px; border: none; background: var(--separator); opacity: 0.15; border-radius: var(--radius-card); margin: 16px;"></div>
+            
+            <!-- Skeleton Card 2: Radar de Fidelización -->
+            <div class="card" style="border-left: 5px solid var(--warning) !important;">
+                <h2 class="fw-600" style="font-size:16px;">🎯 Radar de Fidelización</h2>
+                <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+                    <div class="skeleton-text skeleton-shimmer" style="width: 85%;"></div>
+                    <div class="skeleton-text skeleton-shimmer" style="width: 70%;"></div>
+                </div>
+            </div>
+            
+            <!-- Skeleton Card 3: Productividad -->
+            <div class="card" style="border-left: 5px solid var(--accent) !important;">
+                <h2 class="fw-600" style="font-size:16px;">📊 Productividad</h2>
+                <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+                    <div class="skeleton-text skeleton-shimmer" style="width: 90%;"></div>
+                    <div class="skeleton-text skeleton-shimmer" style="width: 55%; height: 20px; border-radius: 10px;"></div>
+                </div>
+            </div>
+            
+            <!-- Skeleton Card 4: Control de Cartera -->
+            <div class="card" style="border-left: 5px solid var(--danger) !important;">
+                <h2 class="fw-600" style="font-size:16px;">💼 Control de Cartera</h2>
+                <div style="margin-top:10px;">
+                    <div class="skeleton-text skeleton-shimmer" style="width: 95%;"></div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 export async function bindDashboardEvents() {

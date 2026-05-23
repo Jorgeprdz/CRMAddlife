@@ -1,5 +1,6 @@
 // referidos.js - Completo con Semáforo de Estatus, Buscador y Ruteador de Ventas
 import { DB } from './db.js';
+import { showToast, showConfirm } from './utils.js';
 
 let idEdicionActual = null;
 
@@ -35,7 +36,10 @@ export function renderReferidos() {
         <div class="card">
             <h2>Directorio Inteligente</h2>
             <input id="ref-buscador" placeholder="🔍 Buscar referido por nombre..." style="margin-bottom:12px; width:100%;">
-            <div id="lista-referidos-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <div id="lista-referidos-container" style="display:flex; flex-direction:column; gap:10px;">
+                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.15; height: 60px;"></div>
+                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.15; height: 60px;"></div>
+            </div>
         </div>
     `;
 }
@@ -55,7 +59,7 @@ async function guardarReferido() {
         estado: document.getElementById('ref-estado').value,
         notas: document.getElementById('ref-notas').value.trim()
     };
-    if (!datos.nombre) return alert('El nombre es requerido.');
+    if (!datos.nombre) return showToast('El nombre es requerido.', 'warning');
 
     if (idEdicionActual) {
         await DB.actualizar('referidos', idEdicionActual, datos);
@@ -130,7 +134,8 @@ window.cargarRefEdicion = async (id) => {
 };
 
 window.eliminarReferido = async (id) => {
-    if (confirm('¿Eliminar registro de la base de datos?')) {
+    const seguro = await showConfirm('¿Estás seguro de que deseas eliminar este referido de la base de datos?', 'Eliminar Referido', 'Eliminar', true);
+    if (seguro) {
         await DB.eliminar('referidos', id);
         await cargarListaReferidos();
     }

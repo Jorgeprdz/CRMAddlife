@@ -1,6 +1,7 @@
 // actividad.js - Completo con Embudo Actuarial y Sincronización en Nube
 import { DB } from './db.js';
 import { getSupabase } from './app.js';
+import { showToast, showConfirm } from './utils.js';
 
 export function renderActividad() {
     return `
@@ -162,11 +163,12 @@ async function guardarActividadNube() {
     const hoy = new Date().toISOString().split('T')[0];
     actividadEstadoLocal.id = hoy;
     await DB.guardar('actividad_diaria', actividadEstadoLocal);
-    alert('Actividad diaria sincronizada con la nube correctamente.');
+    showToast('Actividad diaria sincronizada en la nube.', 'success');
 }
 
-window.resetearActividadDiaria = () => {
-    if (confirm('¿Deseas vaciar los contadores locales de hoy?')) {
+window.resetearActividadDiaria = async () => {
+    const seguro = await showConfirm('¿Estás seguro de que deseas vaciar todos los contadores de actividad locales de hoy?', 'Resetear Contadores', 'Vaciar', true);
+    if (seguro) {
         actividadEstadoLocal = { referidos: 0, llamadas: 0, citas_agendadas: 0, citas_conectadas: 0, citas_cierre: 0, solicitudes: 0, pagadas: 0, referidos_coi: 0 };
         calcularMetricasYVistas();
     }

@@ -1,5 +1,6 @@
 // cartera.js - Módulo de Cartera con Autocalculador de Fechas y Filtros
 import { DB } from './db.js';
+import { showToast, showConfirm } from './utils.js';
 
 let idEdicionActual = null;
 let listaCompletaCartera = []; // Variable global para los filtros
@@ -150,7 +151,9 @@ export function renderCartera() {
             </div>
 
             <div id="lista-cartera-container" style="display: flex; flex-direction: column; gap: 12px;">
-                <div style="text-align: center; color: var(--text-tertiary); padding: 10px;">Cargando registros...</div>
+                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.18; height: 100px; border-radius: 16px;"></div>
+                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.18; height: 100px; border-radius: 16px;"></div>
+                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.18; height: 100px; border-radius: 16px;"></div>
             </div>
         </div>
     `;
@@ -227,7 +230,7 @@ async function guardarOActualizarPoliza() {
     };
 
     if (!datosPoliza.cliente || !datosPoliza.poliza || !datosPoliza.emision) {
-        alert('Faltan datos obligatorios: Cliente, Número de Póliza y Fecha de Emisión.');
+        showToast('Faltan datos obligatorios: Cliente, Número de Póliza y Fecha de Emisión.', 'danger');
         return;
     }
 
@@ -370,11 +373,11 @@ window.registrarPagoRenovacion = async (id) => {
     if (!poliza) return;
 
     if (poliza.formaPago === 'Prima Única') {
-        alert('Esta póliza es de Prima Única y no requiere renovaciones.');
+        showToast('Esta póliza es de Prima Única y no requiere renovaciones.', 'warning');
         return;
     }
 
-    const confirmacion = confirm(`¿Confirmas el pago registrado para ${poliza.cliente} de su póliza ${poliza.poliza}?`);
+    const confirmacion = await showConfirm(`¿Confirmas el pago registrado para ${poliza.cliente} de su póliza ${poliza.poliza}?`, 'Registrar Cobranza', 'Confirmar Pago');
     if (!confirmacion) return;
 
     // Calcular la siguiente fecha partiendo de la que tenía registrada
@@ -388,13 +391,13 @@ window.registrarPagoRenovacion = async (id) => {
     
     await DB.actualizar('cartera', id, { fechaPago: nuevaFechaStr });
     await actualizarListadoCartera();
-    alert(`Cobranza actualizada.\nEl próximo vencimiento se movió al: ${nuevaFechaStr}`);
+    showToast(`Cobranza actualizada. Próximo vencimiento: ${nuevaFechaStr}`, 'success');
 };
 
 window.eliminarPolizaDobleCheck = async (id) => {
-    const confirmarPrimero = confirm("¿Estás seguro de que deseas eliminar este registro de la base de datos?");
+    const confirmarPrimero = await showConfirm("¿Estás seguro de que deseas eliminar este registro de la base de datos?", "Eliminar Póliza", "Eliminar", true);
     if (confirmarPrimero) {
-        const confirmarSegundo = confirm("⚠️ ADVERTENCIA: Esta acción es irreversible y afectará el cálculo de tus bonos y proyecciones financieras. ¿Confirmar eliminación definitiva?");
+        const confirmarSegundo = await showConfirm("⚠️ ADVERTENCIA: Esta acción es irreversible y afectará el cálculo de tus bonos y proyecciones financieras. ¿Confirmar eliminación definitiva?", "Eliminación Definitiva", "Confirmar Eliminación", true);
         if (confirmarSegundo) {
             await DB.eliminar('cartera', id);
             await actualizarListadoCartera();
@@ -405,7 +408,7 @@ window.eliminarPolizaDobleCheck = async (id) => {
 async function exportarCarteraCompleta() {
     try {
         const registros = listaCompletaCartera;
-        if(registros.length === 0) return alert('No hay datos para exportar.');
+        if(registros.length === 0) return showToast('No hay datos para exportar.', 'warning');
         const matrizDatos = registros.map(p => ({
             'Cliente': p.cliente, 'Nacimiento': p.nacimiento, 'Emision': p.emision, 
             'Poliza': p.poliza, 'Plan': p.plan, 'Variante': p.variante, 'EdadGMM': p.edadGmm,
@@ -459,10 +462,10 @@ function procesarArchivoExcel(e) {
                 await DB.guardar('cartera', nuevaPoliza);
                 cargados++;
             }
-            alert(`Sincronización masiva exitosa. Se añadieron ${cargados} pólizas.`);
+            showToast(`Sincronización masiva exitosa. Se añadieron ${cargados} pólizas.`, 'success');
             await actualizarListadoCartera();
         } catch (err) {
-            alert('Error al leer la estructura interna del archivo Excel.');
+            showToast('Error al leer la estructura interna del archivo Excel.', 'danger');
         }
     };
     lector.readAsArrayBuffer(archivo);
