@@ -12,34 +12,39 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
+        /* Contenedor principal de mensajes en formato flex vertical */
+        #ai-chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        /* Bloques alineadores de flujo de conversación */
+        .msg-row {
+            display: flex;
+            width: 100%;
+        }
+        .msg-row.user-row { justify-content: flex-end; }
+        .msg-row.ia-row { justify-content: flex-start; }
+        
+        /* Formato base de burbujas elásticas */
         .chat-bubble {
-            max-width: 80%;
+            max-width: 75%;
             padding: 10px 14px;
-            border-radius: 18px;
-            margin-bottom: 10px;
+            border-radius: 20px;
             font-size: 14px;
             line-height: 1.4;
             word-wrap: break-word;
-            clear: both;
         }
         .user-bubble {
             background-color: #007AFF;
             color: #fff;
-            float: right;
             border-bottom-right-radius: 4px;
         }
         .ia-bubble {
             background-color: var(--surface-2);
             color: var(--text-primary);
-            float: left;
             border-bottom-left-radius: 4px;
             border: 1px solid var(--separator);
-        }
-        /* Limpiador de floats para el contenedor de mensajes */
-        #ai-chat-messages::after {
-            content: "";
-            display: table;
-            clear: both;
         }
     </style>
 </head>
@@ -84,26 +89,31 @@
         </button>
     </nav>
 
-    <div id="ai-chat-bubble" style="position:fixed; bottom:90px; right:20px; width:56px; height:56px; background:var(--accent); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 14px rgba(0,122,255,0.4); z-index:1000; transition:transform 0.2s;">
-        <span style="font-size:26px;">✨</span>
+    <div id="ai-chat-bubble" style="position:fixed; bottom:95px; right:20px; width:54px; height:54px; background:var(--accent); border-radius:50%; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,122,255,0.35); z-index:1000; transition:transform 0.2s ease;">
+        <span style="font-size:24px; color:white;">💬</span>
     </div>
 
-    <div id="ai-chat-window" style="position:fixed; bottom:160px; right:20px; width:320px; height:450px; background:var(--surface); border-radius:22px; display:none; flex-direction:column; box-shadow:var(--shadow-float); border:1px solid var(--separator); z-index:1000; overflow:hidden;">
+    <div id="ai-chat-window" style="position:fixed; bottom:165px; right:20px; width:310px; height:420px; background:var(--blur-bg-nav); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); border-radius:24px; display:none; flex-direction:column; box-shadow:var(--shadow-float); border:1px solid var(--separator); z-index:1000; overflow:hidden; transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);">
         
-        <div style="padding:15px; border-bottom:1px solid var(--separator); font-weight:600; display:flex; justify-content:space-between; align-items:center; background:var(--surface-2);">
+        <div style="padding:14px 16px; border-bottom:1px solid var(--separator); font-weight:600; display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.02);">
             <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:20px;">🤖</span>
-                <span>Asistente Addlife</span>
+                <span style="font-size:18px;">🎯</span>
+                <span style="font-size:14px; letter-spacing:-0.2px; color:var(--text-primary);">Mentor Comercial</span>
             </div>
-            <div id="close-chat" style="cursor:pointer; width:24px; height:24px; background:var(--separator); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px;">✖</div>
+            <div id="close-chat" style="cursor:pointer; width:22px; height:22px; background:var(--separator); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-secondary);">✕</div>
         </div>
         
-        <div id="ai-chat-messages" style="flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column;">
-            <div class="chat-bubble ia-bubble">¿En qué táctica comercial te apoyo hoy?</div>
+        <div id="ai-chat-messages" style="flex:1; padding:16px; overflow-y:auto;">
+            <div class="msg-row ia-row">
+                <div class="chat-bubble ia-bubble">¿Qué estrategia o cálculo de comisión revisamos hoy?</div>
+            </div>
         </div>
         
-        <div style="padding:10px; border-top:1px solid var(--separator); background:var(--surface);">
-            <input id="ai-chat-input" placeholder="Pregunta algo o pide un guion..." style="width:100%; border:1px solid var(--separator); border-radius:18px; padding:10px 15px; background:var(--surface-2); font-size:14px; outline:none;">
+        <div style="padding:10px 12px; border-top:1px solid var(--separator); background:var(--surface); display:flex; gap:8px; align-items:center;">
+            <input id="ai-chat-input" placeholder="Pregunta o pide un guion..." style="flex:1; border:1px solid var(--separator); border-radius:18px; padding:8px 14px; background:var(--surface-2); font-size:13px; outline:none; width:auto;">
+            <button id="ai-chat-send" style="width:34px; height:34px; border-radius:50% !important; background:var(--accent) !important; border:none; color:white; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0 !important; flex-shrink:0;">
+                <span style="font-size:14px; font-weight:bold;">↑</span>
+            </button>
         </div>
     </div>
 

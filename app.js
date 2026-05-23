@@ -23,8 +23,7 @@ export const getSupabase = () => supabase;
 export async function callGemini(prompt, outputId) {
     const outputEl = document.getElementById(outputId);
     if (outputEl) {
-        // En lugar de sobreescribir con span, si es iMessage inyectamos texto directo.
-        outputEl.innerHTML = '<span style="opacity:0.6;">Escribiendo...</span>';
+        outputEl.innerHTML = '<span style="opacity:0.5;">Escribiendo...</span>';
     }
     
     try {
@@ -122,7 +121,7 @@ window.navigateTo = function(moduleName) {
 };
 
 // =========================================================================
-// SECCIÓN 7: INICIALIZACIÓN GLOBAL (DOM READY)
+// SECCIÓN 7: INICIALIZACIÓN GLOBAL (DOM READY Y VISIBILIDAD DE BURBUJA)
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -162,9 +161,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const { data: { user } } = await supabase.auth.getUser();
     const navBar = document.getElementById('main-sidebar');
+    const chatBubble = document.getElementById('ai-chat-bubble');
 
     if (!user) {
         if (navBar) navBar.style.display = 'none';
+        if (chatBubble) chatBubble.style.display = 'none'; // Ocultar si no hay sesión
         contentArea.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; padding:24px;">
                 <div class="card" style="text-align:center; width:100%; max-width:360px;">
@@ -178,28 +179,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>`;
     } else {
         if (navBar) navBar.style.display = 'flex';
+        if (chatBubble) chatBubble.style.display = 'flex'; // Mostrar únicamente tras loguearse
         window.navigateTo('dashboard');
         resetInactivityTimer();
     }
 
     // =========================================================================
-    // SECCIÓN 8: CONTROLADOR DEL CHATBOT FLOTANTE (iMESSAGE STYLE)
+    // SECCIÓN 8: CONTROLADOR DEL CHATBOT CON ALINEACIÓN iMESSAGE Y MODELO DE IA
     // =========================================================================
     const bubble = document.getElementById('ai-chat-bubble');
     const windowChat = document.getElementById('ai-chat-window');
     const closeBtn = document.getElementById('close-chat');
     const chatInput = document.getElementById('ai-chat-input');
+    const chatSend = document.getElementById('ai-chat-send');
     const msgContainer = document.getElementById('ai-chat-messages');
     
-    // Sonido de notificación "Pop" (URL de archivo público muy ligero)
     const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-    notificationSound.volume = 0.4;
+    notificationSound.volume = 0.3;
 
     const scrollChatToBottom = () => {
         msgContainer.scrollTop = msgContainer.scrollHeight;
     };
 
-    // Alternar visibilidad de la ventana
+    // Alternar visibilidad de la ventana flotante
     bubble.addEventListener('click', () => {
         windowChat.style.display = windowChat.style.display === 'flex' ? 'none' : 'flex';
         if (windowChat.style.display === 'flex') {
@@ -210,29 +212,57 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     closeBtn.addEventListener('click', () => windowChat.style.display = 'none');
 
-    // Procesar mensaje con la tecla Enter
-    chatInput.addEventListener('keypress', async (e) => {
-        if (e.key === 'Enter' && chatInput.value.trim() !== '') {
-            const userMsg = chatInput.value.trim();
-            chatInput.value = '';
+    // Procesamiento centralizado del mensaje enviado por el usuario
+    async function procesarMensajeChat() {
+        const userMsg = chatInput.value.trim();
+        if (!userMsg) return;
+        chatInput.value = '';
 
-            // 1. Renderizar burbuja del usuario (Azul)
-            msgContainer.innerHTML += `<div class="chat-bubble user-bubble">${userMsg}</div>`;
-            scrollChatToBottom();
+        // 1. Renderizar fila y burbuja del usuario (Alineación Derecha)
+        msgContainer.innerHTML += `
+            <div class="msg-row user-row">
+                <div class="chat-bubble user-bubble">${userMsg}</div>
+            </div>`;
+        scrollChatToBottom();
 
-            // 2. Crear ID dinámico para la respuesta que viene en camino
-            const uniqueResId = 'ia-res-' + Date.now();
-            
-            // 3. Renderizar burbuja de espera de la IA (Gris)
-            msgContainer.innerHTML += `<div class="chat-bubble ia-bubble" id="${uniqueResId}"></div>`;
-            scrollChatToBottom();
+        // 2. Crear ID dinámico y renderizar fila de la IA (Alineación Izquierda)
+        const uniqueResId = 'ia-res-' + Date.now();
+        msgContainer.innerHTML += `
+            <div class="msg-row ia-row">
+                <div class="chat-bubble ia-bubble" id="${uniqueResId}"></div>
+            </div>`;
+        scrollChatToBottom();
 
-            // 4. Llamar al motor y reproducir sonido al terminar
-            await callGemini(userMsg, uniqueResId);
-            
-            // Reproducir sonido si el navegador lo permite
-            notificationSound.play().catch(() => console.log("Auto-play bloqueado temporalmente por el navegador."));
-            scrollChatToBottom();
-        }
-    });
+        // 3. Prompt de Mentoria e Inyección de Reglas de Negocio de Seguros Monterrey
+        const promptEstructural = `
+            Actúas como un coach, mentor y promotor altamente exitoso en el sector de seguros de Seguros Monterrey New York Life. 
+            Tu objetivo es dar respuestas claras, prácticas y estratégicas. Conoces a la perfección las tasas de comisión inicial (Primer Año):
+            - Star Temporal: 35%
+            - Orvi 99: 44%
+            - Respaldo Educativo: 35%
+            - Segubeca: 37%
+            - Respaldo Negocio: 35%
+            - Mío: 80%
+            - Imagina Ser: 35%
+            - Objetivo Vida: 44%
+            - Nuevo Plenitud: 35%
+            - Vida Mujer: 40%
+            - Alfa Medical (GMM): 17%
+            - Alfa Medical Flex (GMM): 15%
+            - Alfa Medical Internacional (GMM): 17%
+
+            Regla Operativa Crítica: Si el usuario es un Asesor en Desarrollo y pregunta por productos de Vida, recuerda que las pólizas emiten y participan al 90% del diseño del producto base por reglas actuariales del cuaderno (las comisiones se multiplican por 0.90).
+            Evita introducciones largas o motivación vacía. Responde directamente la pregunta del asesor de forma concisa: "${userMsg}"`;
+
+        // 4. Invocar el motor centralizado
+        await callGemini(promptEstructural, uniqueResId);
+        
+        // Alerta sonora sutil de fin de proceso
+        notificationSound.play().catch(() => {});
+        scrollChatToBottom();
+    }
+
+    // Escuchadores de eventos para el disparador de envío (Tecla Enter y Botón)
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') procesarMensajeChat(); });
+    if (chatSend) chatSend.addEventListener('click', procesarMensajeChat);
 });
