@@ -122,28 +122,39 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
     font-weight: 600; cursor: pointer; border: 1px solid var(--separator);
 }
 
-/* ---- NAVEGACIÓN FLOTANTE (PÍLDORA INFERIOR) ---- */
+/* ---- NAVEGACIÓN FLOTANTE MAGNÉTICA (4 POR VISTA) ---- */
 .bottom-nav {
     display: flex; position: fixed; bottom: 20px; left: 50%;
     transform: translateX(-50%); width: calc(100% - 32px); max-width: 440px;
     background: var(--blur-bg-nav);
-    -webkit-backdrop-filter: var(--blur-strength);
-    backdrop-filter: var(--blur-strength);
-    border-radius: 28px; padding: 6px 10px;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-radius: 28px; 
+    padding: 10px 0; /* Padding horizontal en 0 para cálculo exacto del 25% */
     box-shadow: var(--shadow-float); border: 1px solid var(--separator);
     z-index: 950;
-    overflow-x: auto; white-space: nowrap; gap: 4px;
-    scrollbar-width: none;
+    
+    /* Configuración de scroll elástico y magnético */
+    overflow-x: auto; 
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; 
 }
 .bottom-nav::-webkit-scrollbar { display: none; }
 
 .nav-btn {
-    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+    /* Fuerza a mostrar exactamente 4 elementos por pantalla */
+    flex: 0 0 25%; 
+    scroll-snap-align: start;
+    
+    display: flex; flex-direction: column; align-items: center;
     justify-content: center; background: transparent !important; border: none !important;
     color: var(--text-tertiary); font-size: 10px; font-weight: 500;
-    min-width: 65px; min-height: 50px; cursor: pointer; padding: 0 !important;
+    cursor: pointer; padding: 0 !important; min-height: 44px;
 }
-.nav-btn .icon { font-size: 20px; margin-bottom: 2px; transition: transform 0.2s ease; }
+.nav-btn .icon { font-size: 20px; margin-bottom: 3px; transition: transform 0.2s ease; }
 .nav-btn.active { color: var(--accent); }
 .nav-btn-logout { color: var(--danger) !important; }
 .nav-btn:active .icon { transform: scale(0.88); }
@@ -161,7 +172,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .fw-600 { font-weight: 600; }
 .mt-8 { margin-top: 8px; }
 
-/* ---- WIDGETS DE FINANZAS (NUEVO) ---- */
+/* ---- WIDGETS DE FINANZAS ---- */
 .widget-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
