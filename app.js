@@ -24,62 +24,57 @@ export const getSupabase = () => supabase;
 export async function callGemini(prompt, outputId) {
     const outputEl = document.getElementById(outputId);
     if (outputEl) {
-        outputEl.innerHTML = '<span style="color:var(--text-secondary);">Enviando petición a la nube (Supabase Proxy)...</span>';
+        outputEl.innerHTML = '<span style="color:var(--text-secondary);">Analizando estrategia...</span>';
     }
     
     try {
-        if (!supabase) {
-            throw new Error("El cliente de Supabase es nulo. Revisa tu conexión a internet.");
-        }
+        if (!supabase) throw new Error("El cliente de Supabase es nulo.");
         
-        console.log("Invocando Edge Function 'gemini-proxy'...");
-        
-        // Llamada formal a la Edge Function configurada en tu consola de Supabase
         const { data, error } = await supabase.functions.invoke('gemini-proxy', {
             body: { prompt }
         });
 
-        console.log("Respuesta cruda de Supabase:", { data, error });
+        // 1. Falla de infraestructura (CORS o Red caída)
+        if (error) throw new Error(error.message || JSON.stringify(error));
+        
+        // 2. Falla de paquete vacío
+        if (!data) throw new Error("Supabase respondió con datos vacíos (data = null).");
+        
+        // 3. Intentar extraer la respuesta de nuestro código original
+        let textoRespuesta = data.respuesta || data.text;
 
-        // Captura si la infraestructura de la Edge Function explota (CORS, Red, Caídas)
-        if (error) {
-            throw new Error(error.message || JSON.stringify(error));
+        // 4. Intentar extraer si el proxy devolvió el RAW de Google por accidente
+        if (!textoRespuesta && data.candidates && data.candidates[0]) {
+            textoRespuesta = data.candidates[0].content.parts[0].text;
         }
-        
-        // Validación de datos vacíos
-        if (!data) {
-            throw new Error("La función de Supabase no devolvió ningún dato (data = null).");
+
+        // 5. Capturar si Google devolvió un error crudo (Ej. Modelo inexistente o API Key inválida)
+        if (!textoRespuesta && data.error) {
+            const msgError = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+            throw new Error("Rechazo de Google API: " + msgError);
         }
-        
-        // Captura si el backend de Supabase responde pero con un error controlado de Google Gemini
-        if (data.error) {
-            throw new Error("Error interno del Proxy: " + data.error);
-        }
-        
-        const textoRespuesta = data.respuesta || data.text;
+
+        // 6. Si llegamos aquí, el formato es un misterio. Imprimimos el RAW DATA literal.
         if (!textoRespuesta) {
-            throw new Error("El Proxy respondió, pero no envió la variable 'respuesta'.");
+            throw new Error("Formato desconocido. RAW DATA RECIBIDO: " + JSON.stringify(data));
         }
 
-        // Formateo de saltos de línea estándar a etiquetas HTML de quiebre de bloque
         const textoFormateado = textoRespuesta.replace(/\n/g, '<br>');
-        if (outputEl) {
-            outputEl.innerHTML = textoFormateado;
-        }
+        if (outputEl) outputEl.innerHTML = textoFormateado;
         return textoFormateado;
 
     } catch (err) {
-        console.error("Falla crítica detectada en callGemini:", err);
+        console.error("Falla detectada:", err);
         if (outputEl) {
-            // Renderizado en pantalla del error real para diagnóstico técnico inmediato
             outputEl.innerHTML = `
                 <div style="color:var(--danger); font-size:12px; background: rgba(255,59,48,0.1); padding: 10px; border-radius: 12px; border: 1px solid var(--danger); text-align: left;">
-                    <strong>⚠️ Error Diagnosticado:</strong><br>${err.message || err}<br>
-                    <span style="font-size:10px; opacity:0.8; margin-top:6px; display:block;">Copia este recuadro completo para analizar la respuesta del servidor.</span>
+                    <strong>⚠️ Diagnóstico:</strong><br>${err.message || err}
                 </div>`;
         }
     }
 }
+// =========================================================================
+
 
 // =========================================================================
 // SECCIÓN 4: FUNCIONES DE INICIALIZACIÓN Y CONTROL DE SESIÓN (AUTH)
