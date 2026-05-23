@@ -10,6 +10,38 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .chat-bubble {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            clear: both;
+        }
+        .user-bubble {
+            background-color: #007AFF;
+            color: #fff;
+            float: right;
+            border-bottom-right-radius: 4px;
+        }
+        .ia-bubble {
+            background-color: var(--surface-2);
+            color: var(--text-primary);
+            float: left;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--separator);
+        }
+        /* Limpiador de floats para el contenedor de mensajes */
+        #ai-chat-messages::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+    </style>
 </head>
 <body>
 
@@ -51,6 +83,29 @@
             <span class="icon">🚪</span><span class="label">Salir</span>
         </button>
     </nav>
+
+    <div id="ai-chat-bubble" style="position:fixed; bottom:90px; right:20px; width:56px; height:56px; background:var(--accent); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 14px rgba(0,122,255,0.4); z-index:1000; transition:transform 0.2s;">
+        <span style="font-size:26px;">✨</span>
+    </div>
+
+    <div id="ai-chat-window" style="position:fixed; bottom:160px; right:20px; width:320px; height:450px; background:var(--surface); border-radius:22px; display:none; flex-direction:column; box-shadow:var(--shadow-float); border:1px solid var(--separator); z-index:1000; overflow:hidden;">
+        
+        <div style="padding:15px; border-bottom:1px solid var(--separator); font-weight:600; display:flex; justify-content:space-between; align-items:center; background:var(--surface-2);">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:20px;">🤖</span>
+                <span>Asistente Addlife</span>
+            </div>
+            <div id="close-chat" style="cursor:pointer; width:24px; height:24px; background:var(--separator); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px;">✖</div>
+        </div>
+        
+        <div id="ai-chat-messages" style="flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column;">
+            <div class="chat-bubble ia-bubble">¿En qué táctica comercial te apoyo hoy?</div>
+        </div>
+        
+        <div style="padding:10px; border-top:1px solid var(--separator); background:var(--surface);">
+            <input id="ai-chat-input" placeholder="Pregunta algo o pide un guion..." style="width:100%; border:1px solid var(--separator); border-radius:18px; padding:10px 15px; background:var(--surface-2); font-size:14px; outline:none;">
+        </div>
+    </div>
 
     <script type="module" src="app.js"></script>
 </body>
