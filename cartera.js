@@ -1,3 +1,4 @@
+// cartera.js - Módulo de Cartera 
 import { DB } from './db.js';
 
 let idEdicionActual = null;
@@ -14,6 +15,10 @@ export function renderCartera() {
                 <div style="background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator);">
                     <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Prima Anualizada</span><br>
                     <strong id="kpi-prima-total" style="font-size: 18px; color: var(--success);">$0.00</strong>
+                </div>
+                <div style="grid-column: span 2; background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator); display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Cobranza crítica (vencida o < 30 días):</span>
+                    <strong id="kpi-alertas" class="badge badge-orange" style="font-size: 13px;">0 pólizas</strong>
                 </div>
             </div>
         </div>
@@ -38,11 +43,13 @@ export function renderCartera() {
                     <option value="">Producto específico...</option>
                     <optgroup label="Seguros de Vida">
                         <option value="Star Temporal">Star Temporal</option>
-                        <option value="Orvi">Orvi 99</option>
-                        <option value="Respaldo Educativo">Respaldo Educativo / Segubeca</option>
+                        <option value="Orvi 99">Orvi 99</option>
+                        <option value="Respaldo Educativo">Respaldo Educativo</option>
+                        <option value="Segubeca">Segubeca</option>
                         <option value="Respaldo Negocio">Respaldo Negocio</option>
                         <option value="Mio">Mío</option>
-                        <option value="Imagina Ser">Imagina Ser / Objetivo Vida</option>
+                        <option value="Imagina Ser">Imagina Ser</option>
+                        <option value="Objetivo Vida">Objetivo Vida</option>
                         <option value="Plenitud">Nuevo Plenitud</option>
                         <option value="Vida Mujer">Vida Mujer</option>
                     </optgroup>
@@ -55,7 +62,11 @@ export function renderCartera() {
 
                 <select id="c-variante">
                     <option value="">Variante / Plazo...</option>
+                    <option value="1">1 Año</option>
+                    <option value="5">5 Años</option>
+                    <option value="6">6 Años / Pagos 6</option>
                     <option value="10">10 Años / Pagos 10</option>
+                    <option value="15">15 Años / Pagos 15</option>
                     <option value="20">20 Años / Pagos 20</option>
                     <option value="Nivelado">Nivelado / >20 Años</option>
                     <option value="Edad 65">Edad 65</option>
@@ -96,8 +107,26 @@ export function renderCartera() {
                     <input id="c-fecha" type="date">
                 </div>
 
+                <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; grid-column: span 2;">
+                    <input type="checkbox" id="c-personal" style="width: auto; transform: scale(1.2); margin-left: 4px;">
+                    <label for="c-personal" style="font-size: 13px; color: var(--text-secondary); cursor: pointer;">Es Póliza Personal (Excluir del conteo de bonos)</label>
+                </div>
+
                 <button id="btn-guardar-cartera" class="btn-primary" style="grid-column: span 2; margin-top: 10px;">💾 Guardar Póliza</button>
                 <button id="btn-cancelar-edicion" class="btn-secondary" style="grid-column: span 2; display: none;">❌ Cancelar Edición</button>
+            </div>
+        </div>
+
+        <div class="card" style="border: 2px dashed var(--separator); background: transparent;">
+            <h2 style="font-size:16px; margin-bottom:6px;">Mantenimiento de Información</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
+                <button id="btn-trigger-excel" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    📥 Importar Excel
+                </button>
+                <button id="btn-exportar-excel" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--accent); border-color: var(--accent);">
+                    📤 Exportar Cartera
+                </button>
             </div>
         </div>
 
@@ -111,10 +140,24 @@ export function renderCartera() {
 }
 
 export async function bindCarteraEvents() {
+    if (!window.XLSX) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        document.head.appendChild(script);
+    }
+
     const btnGuardar = document.getElementById('btn-guardar-cartera');
     const btnCancelar = document.getElementById('btn-cancelar-edicion');
+    const btnExcelTrigger = document.getElementById('btn-trigger-excel');
+    const btnExportar = document.getElementById('btn-exportar-excel');
+    const fileInput = document.getElementById('excel-file-input');
+
     if (btnGuardar) btnGuardar.addEventListener('click', guardarOActualizarPoliza);
     if (btnCancelar) btnCancelar.addEventListener('click', limpiarFormularioCartera);
+    if (btnExcelTrigger) btnExcelTrigger.addEventListener('click', () => fileInput.click());
+    if (btnExportar) btnExportar.addEventListener('click', exportarCarteraCompleta);
+    if (fileInput) fileInput.addEventListener('change', procesarArchivoExcel);
+
     await actualizarListadoCartera();
 }
 
@@ -132,11 +175,12 @@ async function guardarOActualizarPoliza() {
         conductoCobro: document.getElementById('c-cobro').value,
         prima: Number(document.getElementById('c-prima').value) || 0,
         suma: Number(document.getElementById('c-suma').value) || 0,
-        fechaPago: document.getElementById('c-fecha').value
+        fechaPago: document.getElementById('c-fecha').value,
+        esPersonal: document.getElementById('c-personal').checked
     };
 
     if (!datosPoliza.cliente || !datosPoliza.poliza || !datosPoliza.fechaPago || !datosPoliza.emision) {
-        alert('Faltan datos obligatorios (Cliente, Póliza, Emisión o Fecha de Pago).');
+        alert('Faltan datos obligatorios: Cliente, Número de Póliza, Emisión y Próxima Fecha de Pago.');
         return;
     }
 
@@ -174,8 +218,9 @@ window.cargarPolizaParaEditar = async (id) => {
     document.getElementById('c-prima').value = p.prima || '';
     document.getElementById('c-suma').value = p.suma || '';
     document.getElementById('c-fecha').value = p.fechaPago || '';
+    document.getElementById('c-personal').checked = p.esPersonal || false;
 
-    document.getElementById('btn-guardar-cartera').innerText = '🔄 Actualizar';
+    document.getElementById('btn-guardar-cartera').innerText = '🔄 Actualizar Datos';
     document.getElementById('btn-cancelar-edicion').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
@@ -185,8 +230,71 @@ function limpiarFormularioCartera() {
     document.getElementById('formulario-titulo').innerText = 'Alta de Póliza';
     ['c-cliente', 'c-nacimiento', 'c-emision', 'c-poliza', 'c-plan', 'c-variante', 'c-edad-gmm', 'c-forma-pago', 'c-cobro', 'c-prima', 'c-suma', 'c-fecha'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('c-moneda').value = 'MXN';
+    document.getElementById('c-personal').checked = false;
     document.getElementById('btn-guardar-cartera').innerText = '💾 Guardar Póliza';
     document.getElementById('btn-cancelar-edicion').style.display = 'none';
+}
+
+async function exportarCarteraCompleta() {
+    try {
+        const registros = await DB.obtenerTodos('cartera');
+        const matrizDatos = registros.length > 0 ? registros.map(p => ({
+            'Cliente': p.cliente, 'Nacimiento': p.nacimiento, 'Emision': p.emision, 
+            'Poliza': p.poliza, 'Plan': p.plan, 'Variante': p.variante, 'EdadGMM': p.edadGmm,
+            'Moneda': p.moneda, 'FormaPago': p.formaPago, 'Conducto': p.conductoCobro, 
+            'Prima': p.prima, 'Suma': p.suma, 'FechaPago': p.fechaPago, 'EsPersonal': p.esPersonal ? 'SI' : 'NO'
+        })) : [{ 'Cliente': '', 'Nacimiento': 'YYYY-MM-DD', 'Emision': 'YYYY-MM-DD', 'Poliza': '', 'Plan': '', 'Variante': '', 'EdadGMM': '', 'Moneda': 'MXN', 'FormaPago': '', 'Conducto': '', 'Prima': 0, 'Suma': 0, 'FechaPago': 'YYYY-MM-DD', 'EsPersonal': 'NO' }];
+
+        const hoja = XLSX.utils.json_to_sheet(matrizDatos);
+        const libro = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(libro, hoja, 'Cartera');
+        XLSX.writeFile(libro, `Cartera_Addlife_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function procesarArchivoExcel(e) {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+
+    const lector = new FileReader();
+    lector.onload = async (evt) => {
+        try {
+            const data = new Uint8Array(evt.target.result);
+            const libro = XLSX.read(data, { type: 'array' });
+            const filas = XLSX.utils.sheet_to_json(libro.Sheets[libro.SheetNames[0]]);
+
+            let cargados = 0;
+            for (const fila of filas) {
+                if(!fila.Cliente && !fila.Poliza) continue;
+                const nuevaPoliza = {
+                    id: 'pol_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                    cliente: fila.Cliente || fila.cliente || 'Registro Importado',
+                    nacimiento: fila.Nacimiento || fila.nacimiento || '',
+                    emision: fila.Emision || fila.emision || '',
+                    poliza: String(fila.Poliza || fila.poliza || Date.now()),
+                    plan: fila.Plan || fila.plan || 'Star Temporal',
+                    variante: String(fila.Variante || fila.variante || '10'),
+                    edadGmm: fila.EdadGMM || fila.edadgmm || '',
+                    moneda: fila.Moneda || fila.moneda || 'MXN',
+                    formaPago: fila.FormaPago || fila.formapago || 'Anual',
+                    conductoCobro: fila.Conducto || fila.conducto || 'Tarjeta de Crédito',
+                    prima: Number(fila.Prima || fila.prima || 0),
+                    suma: Number(fila.Suma || fila.suma || 0),
+                    fechaPago: fila.FechaPago || fila.fechapago || new Date().toISOString().split('T')[0],
+                    esPersonal: String(fila.EsPersonal || fila.espersonal).toUpperCase() === 'SI'
+                };
+                await DB.guardar('cartera', nuevaPoliza);
+                cargados++;
+            }
+            alert(`Sincronización masiva exitosa. Se añadieron ${cargados} pólizas.`);
+            await actualizarListadoCartera();
+        } catch (err) {
+            alert('Error al leer la estructura interna del archivo Excel.');
+        }
+    };
+    lector.readAsArrayBuffer(archivo);
 }
 
 async function actualizarListadoCartera() {
@@ -196,15 +304,30 @@ async function actualizarListadoCartera() {
     const listado = await DB.obtenerTodos('cartera');
     const formatearDinero = (num) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
 
-    document.getElementById('kpi-total-polizas').innerText = listado.length;
-    document.getElementById('kpi-prima-total').innerText = formatearDinero(listado.reduce((acum, p) => acum + (Number(p.prima) || 0), 0));
+    const totalPolizas = listado.length;
+    const primaTotal = listado.reduce((acum, p) => acum + (Number(p.prima) || 0), 0);
+    const hoy = new Date();
+    
+    const alertasCriticas = listado.filter(p => {
+        const fPago = new Date(p.fechaPago + 'T12:00:00');
+        const diffDias = Math.ceil((fPago - hoy) / 86400000);
+        return diffDias <= 30;
+    }).length;
+
+    document.getElementById('kpi-total-polizas').innerText = totalPolizas;
+    document.getElementById('kpi-prima-total').innerText = formatearDinero(primaTotal);
+    
+    const kpiAlertas = document.getElementById('kpi-alertas');
+    if (kpiAlertas) {
+        kpiAlertas.innerText = `${alertasCriticas} pólizas`;
+        kpiAlertas.className = alertasCriticas > 0 ? 'badge badge-red' : 'badge badge-green';
+    }
 
     if (listado.length === 0) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 15px;">No hay registros.</div>`;
+        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 15px;">No hay registros en la base de datos de Supabase.</div>`;
         return;
     }
 
-    const hoy = new Date();
     container.innerHTML = listado.map(p => {
         const fPago = new Date(p.fechaPago + 'T12:00:00');
         const diffDias = Math.ceil((fPago - hoy) / 86400000);
@@ -214,17 +337,20 @@ async function actualizarListadoCartera() {
         if (diffDias < 0) { badgeStyle = 'badge-red'; alertaIcono = '🚨 Vencida'; }
         else if (diffDias <= 15) { badgeStyle = 'badge-orange'; alertaIcono = '⚠️ Por vencer'; }
 
+        const etiquetaPersonal = p.esPersonal ? `<span class="badge badge-orange" style="font-size:10px; margin-top:2px;">Póliza Personal</span>` : '';
+
         return `
             <div style="background: var(--surface-2); padding: 16px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--separator);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <h3 style="margin: 0; font-size: 15px; color: var(--text-primary);">${p.cliente}</h3>
-                        <span style="font-size: 12px; color: var(--text-secondary);">Póliza: <strong>${p.poliza}</strong> | ${p.plan}</span>
+                        <h3 style="margin: 0; font-size: 14px; color: var(--text-primary);">${p.cliente}</h3>
+                        <span style="font-size: 12px; color: var(--text-secondary);">Póliza: <strong>${p.poliza}</strong> | ${p.plan} (${p.variante} años)</span>
+                        <br>${etiquetaPersonal}
                     </div>
                     <span class="badge ${badgeStyle}">${alertaIcono} (${p.fechaPago})</span>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; background: var(--surface); padding: 10px; border-radius: 12px; border: 1px solid var(--separator); color: var(--text-primary);">
-                    <div><span style="color: var(--text-secondary); font-size: 11px;">Prima Anual:</span><br><strong>${formatearDinero(p.prima)} ${p.moneda}</strong></div>
+                    <div><span style="color: var(--text-secondary); font-size: 11px;">Prima Neta:</span><br><strong>${formatearDinero(p.prima)} ${p.moneda}</strong></div>
                     <div><span style="color: var(--text-secondary); font-size: 11px;">Forma Pago:</span><br><strong>${p.formaPago}</strong></div>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
@@ -241,7 +367,7 @@ window.registrarPagoRenovacion = async (id) => {
     const poliza = listado.find(p => p.id === id);
     if (!poliza) return;
 
-    const montoReal = prompt(`Confirma el monto exacto cobrado para ${poliza.cliente} (Prima capturada: ${poliza.prima}):`, poliza.prima);
+    const montoReal = prompt(`Confirma el monto cobrado para ${poliza.cliente} (Capturado: ${poliza.prima}):`, poliza.prima);
     if (montoReal === null) return;
 
     const fechaActual = new Date(poliza.fechaPago + 'T12:00:00');
@@ -252,8 +378,7 @@ window.registrarPagoRenovacion = async (id) => {
 
     const nuevaFechaStr = fechaActual.toISOString().split('T')[0];
     
-    // Aquí en el futuro enlazaremos con el historial de cobros
     await DB.actualizar('cartera', id, { fechaPago: nuevaFechaStr, ultimoMontoPagado: Number(montoReal) });
     await actualizarListadoCartera();
-    alert(`Pago registrado. Próximo vencimiento: ${nuevaFechaStr}`);
+    alert(`Pago registrado exitosamente.\nPróximo vencimiento: ${nuevaFechaStr}`);
 };
