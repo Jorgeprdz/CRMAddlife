@@ -363,3 +363,94 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 [data-theme="dark"] .chat-input-area { background:rgba(0,0,0,0.2); }
 #ai-chat-input { flex:1; border:1px solid var(--separator); border-radius:20px; padding:10px 16px; background:var(--surface); font-size:14px; outline:none; }
 .chat-send-btn { width:38px; height:38px; border-radius:50%; background:var(--accent); border:none; color:white; font-size:18px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+/* =========================================================================
+   SISTEMA UI PREMIUM 8.5 (Mobile First, Glassmorphism, Fluid)
+   ========================================================================= */
+
+/* Limpieza de contenedores obsoletos */
+main {
+    width: 100% !important;
+    max-width: 600px !important; /* Limita ancho solo en PC, full width en celular */
+    margin: 0 auto;
+    padding: 16px;
+    padding-bottom: 100px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+/* Glass Widgets Globales (Reemplaza .card) */
+.glass-widget {
+    background: rgba(255, 255, 255, 0.7);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-sizing: border-box;
+    width: 100%;
+}
+[data-theme="dark"] .glass-widget {
+    background: rgba(30, 30, 32, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Inputs Premium translúcidos */
+.glass-input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(150, 150, 150, 0.2);
+    background: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    color: var(--text-primary);
+    box-sizing: border-box;
+    outline: none;
+    transition: all 0.2s ease;
+}
+.glass-input:focus {
+    background: var(--surface);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+}
+[data-theme="dark"] .glass-input { background: rgba(0, 0, 0, 0.2); }
+
+.glass-output {
+    background: rgba(0,0,0,0.03);
+    padding: 16px;
+    border-radius: 16px;
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+[data-theme="dark"] .glass-output { background: rgba(0,0,0,0.2); }
+
+/* Badges y Botones Orgánicos */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.status-card {
+    border-left: 5px solid var(--status-color);
+    box-shadow: -4px 0 20px rgba(0,0,0,0.02); /* Sombra base suave, el glow vía css variable no anida bien en box-shadow sin calc complejo, por lo que usamos opacity en el dom */
+}
+
+/* Redimensionamiento de botones para móviles */
+.btn-primary, .btn-secondary {
+    border-radius: 14px;
+    padding: 14px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: transform 0.1s ease, filter 0.1s;
+}
+.btn-primary:active, .btn-secondary:active {
+    transform: scale(0.96);
+}
+.btn-sm {
+    padding: 8px 16px !important;
+    font-size: 12px !important;
+    border-radius: 12px;
+}

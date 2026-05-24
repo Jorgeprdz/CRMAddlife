@@ -1,6 +1,7 @@
+// /modules/comisiones.js - Motor Financiero Real y Tablero YTD
 import { DB } from './db.js';
 import { getSupabase, callGemini } from './app.js';
-import { showToast } from './utils.js';
+import { showToast, showConfirm } from './utils.js';
 
 const CommissionTables = {
     'Star Temporal': { nn: 0.35, ry: 0.10, ramo: 'Vida' },
@@ -20,7 +21,9 @@ const CommissionTables = {
 
 const BonusRules = {
     1: { comision: 9000, vidas: 3 }, 2: { comision: 15000, vidas: 6 }, 3: { comision: 21000, vidas: 9 },
-    4: { comision: 31000, vidas: 12 }, 5: { comision: 39000, vidas: 14 }, 6: { comision: 50000, vidas: 15 }
+    4: { comision: 31000, vidas: 12 }, 5: { comision: 39000, vidas: 14 }, 6: { comision: 50000, vidas: 15 },
+    7: { comision: 50000, vidas: 15 }, 8: { comision: 50000, vidas: 15 }, 9: { comision: 50000, vidas: 15 },
+    10: { comision: 50000, vidas: 15 }, 11: { comision: 50000, vidas: 15 }, 12: { comision: 50000, vidas: 15 }
 };
 
 const ActuarialEngine = {
@@ -40,6 +43,7 @@ const ActuarialEngine = {
 
         cartera.forEach(p => {
             if (!p.emision) return;
+            // Parse robusto de fechas para evitar NaN
             const fechaEmision = new Date(p.emision + 'T12:00:00');
             const fechaCobro = p.fechaPago ? new Date(p.fechaPago + 'T12:00:00') : fechaEmision;
             const mesesVigencia = (fechaCobro.getFullYear() - fechaEmision.getFullYear()) * 12 + (fechaCobro.getMonth() - fechaEmision.getMonth());
@@ -48,16 +52,18 @@ const ActuarialEngine = {
             const tabla = CommissionTables[planLimpio] || { nn: 0.10, ry: 0.05, ramo: 'Vida' };
             const factorFrecuencia = p.formaPago === 'Mensual' ? 1/12 : p.formaPago === 'Trimestral' ? 1/4 : p.formaPago === 'Semestral' ? 1/2 : 1;
             const primaNeta = Number(String(p.prima).replace(/[^0-9.-]+/g,"")) || 0;
+            
             const esPrimerAño = mesesVigencia < 12;
-
             const factorDesarrollo = (perfil?.esquema === 'Desarrollo' && tabla.ramo === 'Vida') ? 0.90 : 1.0;
             const comisionLiquida = primaNeta * factorFrecuencia * (esPrimerAño ? (tabla.nn * factorDesarrollo) : tabla.ry);
 
+            // Filtro 1: YTD (Todo lo de este año calendario)
             if (fechaCobro.getFullYear() === hoy.getFullYear()) {
                 results.anualTotal += comisionLiquida;
-                if (esPrimerAño) results.anualInicialesConvencion += comisionLiquida;
+                if (esPrimerAño && !p.esPersonal) results.anualInicialesConvencion += comisionLiquida;
             }
 
+            // Filtro 2: Estricto este mes y año
             if (fechaCobro.getMonth() === hoy.getMonth() && fechaCobro.getFullYear() === hoy.getFullYear()) {
                 if (esPrimerAño) {
                     results.mesIniciales += comisionLiquida;
@@ -68,10 +74,14 @@ const ActuarialEngine = {
             }
         });
 
+        // Aplicación del cuaderno si es Desarrollo
         if (perfil?.esquema === 'Desarrollo') {
-            const regla = BonusRules[results.mesesConcursoActivo] || { comision: 50000, vidas: 15 };
+            const index = results.mesesConcursoActivo > 12 ? 12 : results.mesesConcursoActivo;
+            const regla = BonusRules[index] || { comision: 50000, vidas: 15 };
+            
             results.brechaBonoMonto = Math.max(0, regla.comision - results.mesIniciales);
             results.brechaBonoVidas = Math.max(0, regla.vidas - results.mesPuntosConcurso);
+            
             if (results.brechaBonoMonto === 0 && results.brechaBonoVidas === 0) {
                 results.calificaBono = true;
                 results.bonoMesCalculado = results.mesIniciales * 0.15;
@@ -83,18 +93,24 @@ const ActuarialEngine = {
 
 const FinancialUI = {
     fmt(num) { return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num); },
-    renderSkeleton() { return `<div id="fin-dashboard-container" style="min-height:60vh; padding:10px;"><div class="skeleton-shimmer" style="height:120px; border-radius:16px; margin-bottom:12px;"></div></div>`; },
+    renderSkeleton() { return `<div id="fin-dashboard-container" style="min-height:60vh; padding:10px;"><div class="skeleton-shimmer" style="height:120px; border-radius:24px; margin-bottom:16px;"></div></div>`; },
 
     renderConfigForm() {
         return `
-            <div class="ios-widget" style="margin:20px 0;">
-                <h2 style="font-size:18px; margin-bottom:16px;">⚙️ Configuración del Asesor</h2>
-                <div style="display:flex; flex-direction:column; gap:12px;">
-                    <select id="cfg-esq" style="padding:12px; border-radius:12px; border:1px solid var(--separator);">
-                        <option value="Desarrollo">Training Allowance (Mes 1 a 12)</option>
-                        <option value="Profesional">Nuevo Profesional (Mes 13+)</option>
-                    </select>
-                    <input type="date" id="cfg-fec" style="padding:12px; border-radius:12px; border:1px solid var(--separator);">
+            <div id="fin-dashboard-container" class="glass-widget" style="margin:20px 10px;">
+                <h2 style="font-size:18px; margin-bottom:16px;">⚙️ Perfil Financiero</h2>
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    <div>
+                        <label style="font-size:11px; font-weight:600; color:var(--text-secondary);">Esquema Contractual</label>
+                        <select id="cfg-esq" class="glass-input" style="width:100%;">
+                            <option value="Desarrollo">Training Allowance (Mes 1 a 12)</option>
+                            <option value="Profesional">Nuevo Profesional (Mes 13+)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:11px; font-weight:600; color:var(--text-secondary);">Fecha de Conexión (Clave)</label>
+                        <input type="date" id="cfg-fec" class="glass-input" style="width:100%;">
+                    </div>
                     <button id="btn-save-cfg" class="btn-primary" style="margin-top:10px;">Iniciar Motor Financiero</button>
                 </div>
             </div>`;
@@ -105,54 +121,49 @@ const FinancialUI = {
         const isPro = perfil.esquema === 'Profesional';
         
         let bonoUI = isPro 
-            ? `<div style="font-size:14px; color:var(--text-secondary);">Esquema Consolidado (Sin TA)</div>`
+            ? `<div style="font-size:13px; color:var(--text-secondary); margin-top:4px;">Esquema Consolidado (Sin Training Allowance)</div>`
             : (data.calificaBono 
-                ? `<div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:20px; font-weight:bold;">${this.fmt(data.bonoMesCalculado)}</span><span class="badge badge-green">✅ Logrado</span></div>` 
-                : `<div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:20px; font-weight:bold;">$0.00</span><span class="badge badge-orange">${data.mesPuntosConcurso} Vidas</span></div><p style="font-size:12px; color:var(--text-secondary); margin-top:6px;">Faltan <strong style="color:var(--danger);">${this.fmt(data.brechaBonoMonto)}</strong> y <strong style="color:var(--danger);">${data.brechaBonoVidas} vidas</strong>.</p>`);
+                ? `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;"><span style="font-size:24px; font-weight:800; color:var(--text-primary);">${this.fmt(data.bonoMesCalculado)}</span><span class="status-badge" style="background:rgba(52,199,89,0.1); border-color:#34C759; color:#34C759;">✅ Logrado</span></div>` 
+                : `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;"><span style="font-size:24px; font-weight:800; color:var(--text-primary);">$0.00</span><span class="status-badge" style="background:rgba(255,149,0,0.1); border-color:#FF9500; color:#FF9500;">${data.mesPuntosConcurso} Vidas</span></div>
+                   <p style="font-size:12px; color:var(--text-secondary); margin-top:8px;">Faltan <strong style="color:var(--danger);">${this.fmt(data.brechaBonoMonto)}</strong> y <strong style="color:var(--danger);">${data.brechaBonoVidas} vidas</strong>.</p>`);
 
         return `
-            <div style="display:flex; flex-direction:column; gap:16px; width:100%;">
+            <div id="fin-dashboard-container" style="display:flex; flex-direction:column; gap:16px; padding-bottom:24px;">
                 
-                <div class="ios-widget" style="background:#000; color:#fff;">
-                    <span style="font-size:12px; opacity:0.7;">Ingreso Estimado Mes</span>
-                    <div style="font-size:40px; font-weight:800; margin-top:4px;">${this.fmt(totalMes)}</div>
+                <div class="glass-widget" style="background:var(--text-primary); color:var(--surface); border:none; text-align:center; padding:24px;">
+                    <span style="font-size:12px; opacity:0.8; font-weight:600; text-transform:uppercase;">Ingreso Estimado Mes</span>
+                    <div style="font-size:42px; font-weight:800; margin-top:4px; letter-spacing:-1px;">${this.fmt(totalMes)}</div>
                 </div>
 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <div class="ios-widget">
-                        <span style="font-size:11px; opacity:0.6;">INICIALES</span>
-                        <div style="font-size:18px; font-weight:700;">${this.fmt(data.mesIniciales)}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="glass-widget" style="padding:16px;">
+                        <span style="font-size:11px; opacity:0.6; font-weight:700;">INICIALES</span>
+                        <div style="font-size:20px; font-weight:800; margin-top:4px;">${this.fmt(data.mesIniciales)}</div>
                     </div>
-                    <div class="ios-widget">
-                        <span style="font-size:11px; opacity:0.6;">RENOVACIÓN</span>
-                        <div style="font-size:18px; font-weight:700;">${this.fmt(data.mesRenovacion)}</div>
+                    <div class="glass-widget" style="padding:16px;">
+                        <span style="font-size:11px; opacity:0.6; font-weight:700;">RENOVACIÓN</span>
+                        <div style="font-size:20px; font-weight:800; margin-top:4px;">${this.fmt(data.mesRenovacion)}</div>
                     </div>
                 </div>
 
-                <div class="ios-widget" style="border-left:4px solid var(--warning);">
-                    <h2 style="font-size:14px; margin-bottom:10px; color:var(--text-secondary);">${isPro ? 'Productividad' : 'Bono Cuaderno'}</h2>
+                <div class="glass-widget" style="border-left:4px solid var(--warning); padding:16px;">
+                    <h2 style="font-size:14px; margin:0; color:var(--text-secondary); font-weight:600;">${isPro ? 'Bono Productividad' : `Meta Cuaderno (Mes ${data.mesesConcursoActivo})`}</h2>
                     ${bonoUI}
                 </div>
 
-                <div class="ios-widget" style="background:var(--surface-2); border-left:4px solid var(--accent);">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <strong style="font-size:13px;">🧠 Estratega Financiero AI</strong>
-                        <button id="btn-ai-finance" class="btn-secondary" style="padding:4px 10px!important; font-size:11px;">Analizar</button>
+                <h3 style="font-size:14px; font-weight:700; color:var(--text-secondary); margin: 8px 0 0 4px;">Acumulados (Año en Curso)</h3>
+                <div class="glass-widget" style="padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid rgba(150,150,150,0.1);">
+                        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">Ingreso Anual Bruto</span>
+                        <span style="font-size:18px; font-weight:800; color:var(--text-primary);">${this.fmt(data.anualTotal)}</span>
                     </div>
-                    <div id="ai-finance-tip" style="font-size:13px; margin-top:8px; color:var(--text-secondary);">Haz clic en Analizar para obtener proyección.</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px;">
+                        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">Acumulado Convención</span>
+                        <span style="font-size:18px; font-weight:800; color:#34C759;">${this.fmt(data.anualInicialesConvencion)}</span>
+                    </div>
                 </div>
 
-                <h3 style="font-size:13px; font-weight:bold; color:var(--text-secondary); text-transform:uppercase; margin-top:10px;">Acumulados (YTD)</h3>
-                <div class="ios-widget" style="gap:12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:10px; border-bottom:1px solid var(--separator);">
-                        <span style="font-size:14px; font-weight:600;">Ingreso Anual Bruto</span>
-                        <span style="font-size:16px; font-weight:bold;">${this.fmt(data.anualTotal)}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:14px; font-weight:600;">Para Convención</span>
-                        <span style="font-size:16px; font-weight:bold; color:var(--success);">${this.fmt(data.anualInicialesConvencion)}</span>
-                    </div>
-                </div>
+                <button id="btn-dev-reset" class="btn-secondary btn-sm" style="margin-top:16px; opacity:0.5;">⚙️ Modo Dev: Resetear Perfil</button>
             </div>
         `;
     }
@@ -167,27 +178,40 @@ export async function bindComisionesEvents() {
     const supabase = getSupabase();
     if (!supabase || !container) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: perfiles } = await supabase.from('perfil_asesor').select('*').eq('user_id', user.id);
-    const perfil = perfiles && perfiles.length > 0 ? perfiles[0] : null;
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if(!user) throw new Error("No user");
 
-    if (!perfil) {
-        container.outerHTML = FinancialUI.renderConfigForm();
-        document.getElementById('btn-save-cfg').addEventListener('click', async () => {
-            const f = document.getElementById('cfg-fec').value;
-            if (!f) return showToast('Agrega fecha.', 'danger');
-            await supabase.from('perfil_asesor').insert([{ user_id: user.id, esquema: document.getElementById('cfg-esq').value, fecha_conexion: f }]);
-            window.navigateTo('comisiones');
+        const { data: perfiles } = await supabase.from('perfil_asesor').select('*').eq('user_id', user.id);
+        const perfil = perfiles && perfiles.length > 0 ? perfiles[0] : null;
+
+        if (!perfil) {
+            container.outerHTML = FinancialUI.renderConfigForm();
+            document.getElementById('btn-save-cfg').addEventListener('click', async () => {
+                const f = document.getElementById('cfg-fec').value;
+                if (!f) return showToast('Agrega fecha de conexión.', 'danger');
+                await supabase.from('perfil_asesor').insert([{ user_id: user.id, esquema: document.getElementById('cfg-esq').value, fecha_conexion: f }]);
+                window.navigateTo('comisiones');
+            });
+            return;
+        }
+
+        const cartera = await DB.obtenerTodos('cartera');
+        const resultados = ActuarialEngine.calculatePortfolio(cartera, perfil);
+        
+        container.outerHTML = FinancialUI.hydrateDashboard(resultados, perfil);
+
+        // Listener Modo Dev
+        document.getElementById('btn-dev-reset')?.addEventListener('click', async () => {
+            const c = await showConfirm('Esto borrará tu perfil de comisiones para recalibrarlo. ¿Continuar?', 'Resetear Perfil', 'Resetear', true);
+            if (c) {
+                await supabase.from('perfil_asesor').delete().eq('user_id', user.id);
+                window.navigateTo('comisiones');
+            }
         });
-        return;
+
+    } catch (e) {
+        console.error(e);
+        showToast('Error cargando finanzas.', 'danger');
     }
-
-    const cartera = await DB.obtenerTodos('cartera');
-    const resultados = ActuarialEngine.calculatePortfolio(cartera, perfil);
-    container.outerHTML = FinancialUI.hydrateDashboard(resultados, perfil);
-
-    document.getElementById('btn-ai-finance')?.addEventListener('click', async () => {
-        const p = `Actúas como CFO personal. Mis comisiones este mes son $${resultados.mesIniciales} iniciales y $${resultados.mesRenovacion} renovación. Faltan ${resultados.brechaBonoVidas} pólizas para el bono. Dame 1 línea accionable sobre qué perfil prospectar para lograrlo. Cero saludos.`;
-        await callGemini(p, 'ai-finance-tip');
-    });
 }

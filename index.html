@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CRM Addlife Premium</title>
+    <title>CRM Addlife Professional</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" id="meta-theme-color" content="#F2F2F7">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -14,12 +15,10 @@
             <img id="header-avatar" src="https://via.placeholder.com/40" style="width:36px; height:36px; border-radius:50%; display:none; border:2px solid var(--accent); object-fit:cover;">
             <div style="display:flex; flex-direction:column;">
                 <span id="header-greeting" style="font-size:11px; color:var(--text-secondary); font-weight:500;">CRM Addlife</span>
-                <strong id="header-name" style="font-size:15px; color:var(--text-primary); letter-spacing:-0.3px;">Inicia sesión</strong>
+                <strong id="header-name" style="font-size:15px; color:var(--text-primary);">Inicia sesión</strong>
             </div>
         </div>
-        <div class="ios-toggle-wrap">
-            <label class="ios-toggle"><input type="checkbox" id="theme-toggle"><div class="ios-toggle-track"></div><div class="ios-toggle-thumb"></div></label>
-        </div>
+        <div class="ios-toggle-wrap"><label class="ios-toggle"><input type="checkbox" id="theme-toggle"><div class="ios-toggle-track"></div><div class="ios-toggle-thumb"></div></label></div>
     </header>
 
     <main id="app-content"></main>
@@ -34,25 +33,23 @@
     </nav>
 
     <div id="ai-chat-bubble" class="chat-bubble-trigger" style="display:none;">💬</div>
-
     <div id="ai-chat-window" class="chat-window-modal">
         <div class="chat-header">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:18px;">🧠</span>
-                <div style="display:flex; flex-direction:column;">
-                    <span style="font-size:13px; font-weight:600;">Mentor Comercial</span>
-                    <span style="font-size:10px; color:var(--success);">En línea</span>
-                </div>
-            </div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:18px;">🧠</span><div style="display:flex; flex-direction:column;"><span style="font-size:13px; font-weight:600;">Asistente Comercial</span><span style="font-size:10px; color:var(--success);">En línea</span></div></div>
             <div id="close-chat" class="chat-close-btn">✕</div>
         </div>
         <div id="ai-chat-messages" class="chat-messages-container"></div>
         <div class="chat-input-area">
-            <input id="ai-chat-input" placeholder="Pregunta sobre cierres o métricas..." autocomplete="off">
+            <input id="ai-chat-input" placeholder="Pregunta sobre estrategia..." autocomplete="off">
             <button id="ai-chat-send" class="chat-send-btn">↑</button>
         </div>
     </div>
 
     <script type="module" src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(console.error));
+        }
+    </script>
 </body>
 </html>
