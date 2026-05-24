@@ -10,37 +10,80 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
+    <!-- Header -->
     <header class="app-header" id="main-header">
         <div style="display:flex; align-items:center; gap:10px;">
-            <img id="header-avatar" src="https://via.placeholder.com/40" style="width:36px; height:36px; border-radius:50%; display:none; border:2px solid var(--accent); object-fit:cover;">
+            <img id="header-avatar" src="" style="width:36px; height:36px; border-radius:50%; display:none; border:2px solid var(--accent); object-fit:cover;">
             <div style="display:flex; flex-direction:column;">
                 <span id="header-greeting" style="font-size:11px; color:var(--text-secondary); font-weight:500;">CRM Addlife</span>
                 <strong id="header-name" style="font-size:15px; color:var(--text-primary);">Inicia sesión</strong>
             </div>
         </div>
-        <div class="ios-toggle-wrap"><label class="ios-toggle"><input type="checkbox" id="theme-toggle"><div class="ios-toggle-track"></div><div class="ios-toggle-thumb"></div></label></div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div class="ios-toggle-wrap">
+                <label class="ios-toggle">
+                    <input type="checkbox" id="theme-toggle">
+                    <div class="ios-toggle-track"></div>
+                    <div class="ios-toggle-thumb"></div>
+                </label>
+            </div>
+        </div>
     </header>
 
+    <!-- Contenido principal -->
     <main id="app-content"></main>
 
-    <nav id="main-sidebar" class="bottom-nav" style="display: none;">
-        <button class="nav-btn active" data-target="dashboard"><span class="icon">🏠</span><span class="label">Inicio</span></button>
-        <button class="nav-btn" data-target="prospeccion"><span class="icon">🎯</span><span class="label">Embudo</span></button>
-        <button class="nav-btn" data-target="referidos"><span class="icon">👥</span><span class="label">Directorio</span></button>
-        <button class="nav-btn" data-target="actividad"><span class="icon">📈</span><span class="label">Actividad</span></button>
-        <button class="nav-btn" data-target="cartera"><span class="icon">💼</span><span class="label">Cartera</span></button>
-        <button class="nav-btn" data-target="comisiones"><span class="icon">💰</span><span class="label">Finanzas</span></button>
+    <!-- Nav inferior -->
+    <nav id="main-sidebar" class="bottom-nav" style="display:none;">
+        <button class="nav-btn active" data-target="dashboard">
+            <span class="icon">🏠</span><span class="label">Inicio</span>
+        </button>
+        <button class="nav-btn" data-target="prospeccion">
+            <span class="icon">🎯</span><span class="label">Embudo</span>
+        </button>
+        <button class="nav-btn" data-target="referidos">
+            <span class="icon">👥</span><span class="label">Directorio</span>
+        </button>
+        <button class="nav-btn" data-target="actividad">
+            <span class="icon">📈</span><span class="label">Actividad</span>
+        </button>
+        <button class="nav-btn" data-target="cartera">
+            <span class="icon">💼</span><span class="label">Cartera</span>
+        </button>
+        <button class="nav-btn" data-target="comisiones">
+            <span class="icon">💰</span><span class="label">Finanzas</span>
+        </button>
+        <!-- Botón cerrar sesión -->
+        <button class="nav-btn nav-btn-logout" id="btn-cerrar-sesion" style="color:var(--danger);">
+            <span class="icon">🚪</span><span class="label">Salir</span>
+        </button>
     </nav>
 
+    <!-- Chat bubble flotante -->
     <div id="ai-chat-bubble" class="chat-bubble-trigger" style="display:none;">💬</div>
+
+    <!-- Ventana chat -->
     <div id="ai-chat-window" class="chat-window-modal">
         <div class="chat-header">
-            <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:18px;">🧠</span><div style="display:flex; flex-direction:column;"><span style="font-size:13px; font-weight:600;">Asistente Comercial</span><span style="font-size:10px; color:var(--success);">En línea</span></div></div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">🧠</span>
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-size:13px; font-weight:600;">Asistente Comercial</span>
+                    <span style="font-size:10px; color:var(--success);">Con datos reales de tu cartera</span>
+                </div>
+            </div>
             <div id="close-chat" class="chat-close-btn">✕</div>
         </div>
-        <div id="ai-chat-messages" class="chat-messages-container"></div>
+        <div id="ai-chat-messages" class="chat-messages-container">
+            <div class="msg-row ia-row">
+                <div class="chat-bubble ia-bubble">
+                    Hola 👋 Soy tu asistente con acceso a tus datos reales. Pregúntame sobre tus comisiones del mes, renovaciones pendientes, qué te falta para el bono, o estrategias de venta.
+                </div>
+            </div>
+        </div>
         <div class="chat-input-area">
-            <input id="ai-chat-input" placeholder="Pregunta sobre estrategia..." autocomplete="off">
+            <input id="ai-chat-input" placeholder="Pregunta sobre tu negocio..." autocomplete="off">
             <button id="ai-chat-send" class="chat-send-btn">↑</button>
         </div>
     </div>
@@ -48,7 +91,9 @@
     <script type="module" src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(console.error));
+            window.addEventListener('load', () =>
+                navigator.serviceWorker.register('/service-worker.js').catch(console.error)
+            );
         }
     </script>
 </body>
