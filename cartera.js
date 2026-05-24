@@ -1,4 +1,4 @@
-// /modules/cartera.js - Motor de Gestión de Pólizas (Completo y Corregido)
+// /modules/cartera.js - Motor de Gestión de Pólizas (SaaS Edition)
 import { DB } from './db.js';
 import { showToast, showConfirm } from './utils.js';
 
@@ -111,7 +111,6 @@ export function renderCartera() {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
                 <button id="btn-trigger-excel" class="btn-secondary btn-sm">📥 Importar Excel</button>
-                <button id="btn-exportar-excel" class="btn-secondary btn-sm" style="color: var(--accent); border-color: var(--accent);">📤 Exportar</button>
             </div>
         </div>
 
@@ -203,57 +202,80 @@ const Controller = {
         const reader = new FileReader();
         reader.onload = async (evt) => {
             try {
-                showToast('Procesando archivo de cartera...', 'warning');
+                showToast('Normalizando y procesando registros...', 'warning');
                 const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
                 const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                 
-                const promesasGuardado = rows.map(row => {
-                    // RESOLUCIÓN DE NORMALIZACIÓN DE LLAVES (Mapeo Insensible a Mayúsculas/Minúsculas)
-                    const cliente = row.cliente || row.Cliente;
-                    const poliza = row.poliza || row.Poliza;
-                    const emision = row.emision || row.Emision || new Date().toISOString().split('T')[0];
-                    const fp = row.formapago || row.FormaPago || 'Anual';
-                    const plan = row.plan || row.Plan || '';
-                    const prima = Number(row.prima || row.Prima) || 0;
-                    const nacimiento = row.nacimiento || row.Nacimiento || '';
-                    const variante = row.variante || row.Variante || '';
-                    const edadgmm = row.edadgmm || row.EdadGMM || '';
-                    const moneda = row.moneda || row.Moneda || 'MXN';
-                    const conducto = row.conducto || row.Conducto || '';
-                    const suma = Number(row.suma || row.Suma) || 0;
-                    const espersonal = String(row.espersonal || row.EsPersonal || 'NO').toUpperCase() === 'SI';
+                const promesasGuardado = [];
 
-                    if (!cliente && !poliza) return Promise.resolve();
+                // Función interna de normalización extrema de llaves
+                const normalizarTexto = (t) => String(t).toLowerCase().trim()
+                    .replace(/[\s_]+/g, '')
+                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-                    const data = {
-                        id: 'pol_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-                        cliente: cliente || 'Sin Nombre',
-                        nacimiento: nacimiento,
-                        emision: emision,
-                        poliza: String(poliza),
-                        plan: plan,
-                        variante: variante,
-                        edadGmm: edadgmm,
-                        moneda: moneda,
-                        formaPago: fp,
-                        conductoCobro: conducto,
-                        prima: prima,
-                        suma: suma,
-                        esPersonal: espersonal,
-                        fechaPago: row.fechapago || row.FechaPago || this._calcularProximoVencimiento(emision, fp)
-                    };
-                    return DB.guardar('cartera', data);
-                });
+                for (const row of rows) {
+                    try {
+                        // Construir mapa de la fila normalizado
+                        const cleanRow = {};
+                        Object.keys(row).forEach(k => {
+                            cleanRow[normalizarTexto(k)] = row[k];
+                        });
 
+                        const cliente = cleanRow['cliente'] || cleanRow['nombre'] || cleanRow['nombrecliente'];
+                        const poliza = cleanRow['poliza'] || cleanRow['numpoliza'] || cleanRow['numeropoliza'];
+                        
+                        if (!cliente && !poliza) continue; // Salta filas vacías de forma segura
+
+                        const emision = cleanRow['emision'] || cleanRow['fechaemision'] || new Date().toISOString().split('T')[0];
+                        const fp = cleanRow['formapago'] || cleanRow['frecuencia'] || 'Anual';
+                        const plan = cleanRow['plan'] || cleanRow['producto'] || '';
+                        const prima = Number(cleanRow['prima'] || cleanRow['primaneta']) || 0;
+                        const nacimiento = cleanRow['nacimiento'] || cleanRow['fechanacimiento'] || '';
+                        const variante = cleanRow['variante'] || cleanRow['plazo'] || '';
+                        const edadgmm = cleanRow['edadgmm'] || '';
+                        const moneda = cleanRow['moneda'] || 'MXN';
+                        const conducto = cleanRow['conducto'] || cleanRow['conductocobro'] || '';
+                        const suma = Number(cleanRow['suma'] || cleanRow['sumaasegurada']) || 0;
+                        const espersonal = String(cleanRow['espersonal'] || 'NO').toUpperCase() === 'SI';
+
+                        const data = {
+                            id: 'pol_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+                            cliente: String(cliente),
+                            nacimiento: String(nacimiento),
+                            emision: String(emision),
+                            poliza: String(poliza),
+                            plan: String(plan),
+                            variante: String(variante),
+                            edadGmm: String(edadgmm),
+                            moneda: String(moneda),
+                            formaPago: String(fp),
+                            conductoCobro: String(conducto),
+                            prima: prima,
+                            suma: suma,
+                            esPersonal: espersonal,
+                            fechaPago: cleanRow['fechapago'] || this._calcularProximoVencimiento(emision, fp)
+                        };
+
+                        // Empujar la promesa al pool
+                        promesasGuardado.push(DB.guardar('cartera', data));
+                    } catch (lineError) {
+                        console.warn('[Importador] Error procesando fila individual, saltando...', lineError);
+                    }
+                }
+
+                // Sincronía determinista: Esperar a que la BD responda al 100%
                 await Promise.all(promesasGuardado);
-                await this.cargarDatos();
-                showToast(`Sincronización masiva completada con éxito.`, 'success');
+                
+                // Forzar re-lectura limpia del Storage
+                await Controller.cargarDatos();
+                showToast(`Se importaron ${promesasGuardado.length} pólizas exitosamente.`, 'success');
             } catch (err) {
                 console.error(err);
-                showToast('Error estructurando Excel. Verifica el formato.', 'danger');
+                showToast('Error crítico leyendo el archivo Excel.', 'danger');
             }
         };
         reader.readAsArrayBuffer(file);
+        e.target.value = ''; // Limpiar input para permitir re-subidas
     },
 
     renderKPIs() {
