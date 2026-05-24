@@ -1,176 +1,124 @@
-// db.js - Motor de Base de Datos Cloud (Supabase) con Soporte Offline
+// /services/db.service.js - Motor de Base de Datos Cloud (Supabase) con Soporte Offline Robusto
 
 import { showToast } from './utils.js';
 
-// Auxiliar para comprobar fallas de red
 function isNetworkError(err) {
     if (!navigator.onLine) return true;
-    const msg = String(err.message || err).toLowerCase();
-    return msg.includes('failed to fetch') || msg.includes('network') || msg.includes('load failed') || msg.includes('typeerror');
+    const msg = String(err?.message || err).toLowerCase();
+    return msg.includes('fetch') || msg.includes('network') || msg.includes('load failed') || msg.includes('typeerror') || msg.includes('timeout');
 }
 
-// Auxiliares de LocalStorage Shadow
-function getLocalShadow(coleccion) {
-    return JSON.parse(localStorage.getItem(`db_shadow_${coleccion}`) || '[]');
+// =========================================================================
+// GESTOR DE CACHÉ LOCAL (SHADOW DOM)
+// =========================================================================
+const shadowPrefix = 'db_shadow_';
+const getLocalShadow = (col) => JSON.parse(localStorage.getItem(shadowPrefix + col) || '[]');
+const saveLocalShadow = (col, list) => localStorage.setItem(shadowPrefix + col, JSON.stringify(list));
+
+function addToShadow(col, datos) {
+    const list = getLocalShadow(col);
+    const idx = list.findIndex(item => item.id === datos.id);
+    if (idx >= 0) list[idx] = { ...list[idx], ...datos };
+    else list.push(datos);
+    saveLocalShadow(col, list);
 }
 
-function saveLocalShadow(coleccion, list) {
-    localStorage.setItem(`db_shadow_${coleccion}`, JSON.stringify(list));
+function removeFromShadow(col, id) {
+    saveLocalShadow(col, getLocalShadow(col).filter(item => item.id !== id));
 }
 
-function addToShadow(coleccion, datos) {
-    const list = getLocalShadow(coleccion);
-    const index = list.findIndex(item => item.id === datos.id);
-    if (index >= 0) {
-        list[index] = datos;
+// =========================================================================
+// GESTOR DE COLA OFFLINE INTELIGENTE
+// =========================================================================
+let isOfflineQueueProcessing = false;
+
+export function enqueueOffline(task) {
+    const queue = JSON.parse(localStorage.getItem('crm_offline_queue') || '[]');
+    // Prevenir saturación: Unificar tareas de actualización pendientes para el mismo ID
+    const exists = queue.findIndex(q => q.id === task.id && q.action === task.action && q.coleccion === task.coleccion);
+    
+    if (exists >= 0 && task.datos) {
+        queue[exists].datos = { ...queue[exists].datos, ...task.datos };
     } else {
-        list.push(datos);
+        queue.push(task);
     }
-    saveLocalShadow(coleccion, list);
-}
-
-function removeFromShadow(coleccion, id) {
-    const list = getLocalShadow(coleccion);
-    const filtered = list.filter(item => item.id !== id);
-    saveLocalShadow(coleccion, filtered);
-}
-
-function updateInShadow(coleccion, id, nuevosDatos) {
-    const list = getLocalShadow(coleccion);
-    const index = list.findIndex(item => item.id === id);
-    if (index >= 0) {
-        list[index] = { ...list[index], ...nuevosDatos };
-        saveLocalShadow(coleccion, list);
-        return list[index];
-    }
-    return null;
-}
-
-// Manejo de la Cola de Cambios Fuera de Línea
-function getOfflineQueue() {
-    return JSON.parse(localStorage.getItem('db_offline_queue') || '[]');
-}
-
-function saveOfflineQueue(queue) {
-    localStorage.setItem('db_offline_queue', JSON.stringify(queue));
-}
-
-function enqueueOffline(item) {
-    const queue = getOfflineQueue();
-    queue.push(item);
-    saveOfflineQueue(queue);
+    localStorage.setItem('crm_offline_queue', JSON.stringify(queue));
 }
 
 export async function processOfflineQueue() {
-    if (!navigator.onLine) return;
-    const queue = getOfflineQueue();
+    if (isOfflineQueueProcessing || !navigator.onLine || !window.supabaseClient) return;
+    
+    const queue = JSON.parse(localStorage.getItem('crm_offline_queue') || '[]');
     if (queue.length === 0) return;
 
-    let itemsProcessed = 0;
-    while (queue.length > 0) {
-        const item = queue[0];
-        try {
-            let success = false;
-            if (item.action === 'guardar') {
-                success = await DB.guardar(item.coleccion, item.datos, true);
-            } else if (item.action === 'eliminar') {
-                success = await DB.eliminar(item.coleccion, item.id, true);
-            } else if (item.action === 'actualizar') {
-                success = await DB.actualizar(item.coleccion, item.id, item.datos, true);
-            }
+    isOfflineQueueProcessing = true;
+    let successCount = 0;
+    const pending = [];
 
-            if (success) {
-                queue.shift();
-                saveOfflineQueue(queue);
-                itemsProcessed++;
-            } else {
-                break;
+    for (const task of queue) {
+        try {
+            if (task.action === 'guardar' || task.action === 'actualizar') {
+                // Upsert unificado para resolución automática de conflictos
+                const { error } = await window.supabaseClient.from('crm_data')
+                    .upsert({ id: task.id, coleccion: task.coleccion, datos: task.datos }, { onConflict: 'id' });
+                if (error) throw error;
+            } else if (task.action === 'eliminar') {
+                const { error } = await window.supabaseClient.from('crm_data').delete().eq('id', task.id);
+                if (error) throw error;
             }
+            successCount++;
         } catch (err) {
-            if (isNetworkError(err)) {
-                break;
-            } else {
-                // Registro defectuoso (ej: restricciones DB), omitir para evitar bloqueo
-                console.error("Descartando elemento inválido de la cola offline:", item, err);
-                queue.shift();
-                saveOfflineQueue(queue);
-            }
+            console.error(`[SyncManager] Error syncing item ${task.id}:`, err);
+            pending.push(task); // Retener si el error es de negocio, no de red
         }
     }
 
-    if (itemsProcessed > 0) {
-        showToast(`Se sincronizaron ${itemsProcessed} cambios pendientes con la nube.`, 'success');
+    localStorage.setItem('crm_offline_queue', JSON.stringify(pending));
+    isOfflineQueueProcessing = false;
+
+    if (successCount > 0) {
+        showToast(`Sincronización silenciosa completada: ${successCount} registros subidos.`, 'success');
     }
 }
 
+window.addEventListener('online', processOfflineQueue);
+
+// =========================================================================
+// CORE API EXPORTADA (Patrón Singleton Adapter)
+// =========================================================================
 export const DB = {
-    guardar: async (coleccion, datos, isSyncing = false) => {
-        if (!isSyncing) {
-            addToShadow(coleccion, datos);
-        }
+    obtenerTodos: async (coleccion) => {
+        const local = getLocalShadow(coleccion);
+        if (!navigator.onLine || !window.supabaseClient) return local;
 
         try {
-            const { data: { user } } = await window.supabaseClient.auth.getUser();
-            if (!user) throw new Error("No autenticado.");
-
-            const { error } = await window.supabaseClient.from('crm_data').insert([{
-                id: datos.id,
-                user_id: user.id,
-                coleccion: coleccion,
-                datos: datos
-            }]);
+            const { data, error } = await window.supabaseClient.from('crm_data')
+                .select('datos')
+                .eq('coleccion', coleccion);
+                
             if (error) throw error;
-            return true;
+            const remote = data.map(row => row.datos);
+            saveLocalShadow(coleccion, remote); // Actualizar caché
+            return remote;
         } catch (err) {
-            if (!isSyncing && isNetworkError(err)) {
-                enqueueOffline({ action: 'guardar', coleccion, datos });
-                showToast('Sin conexión. Guardado localmente.', 'warning');
-                return true;
-            }
+            if (isNetworkError(err)) return local;
             throw err;
         }
     },
 
-    obtenerTodos: async (coleccion) => {
-        try {
-            const { data: { user } } = await window.supabaseClient.auth.getUser();
-            if (!user) return getLocalShadow(coleccion);
-
-            const { data, error } = await window.supabaseClient.from('crm_data')
-                .select('datos')
-                .eq('user_id', user.id)
-                .eq('coleccion', coleccion);
-                
-            if (error) throw error;
-            
-            const list = data ? data.map(row => row.datos) : [];
-            saveLocalShadow(coleccion, list); // Guardar copia espejo
-            return list;
-        } catch (err) {
-            if (isNetworkError(err)) {
-                showToast('Sin conexión. Trabajando con caché local.', 'warning');
-                return getLocalShadow(coleccion);
-            }
-            console.error("Error al obtener todos:", err);
-            return getLocalShadow(coleccion);
-        }
-    },
-
-    eliminar: async (coleccion, id, isSyncing = false) => {
-        if (!isSyncing) {
-            removeFromShadow(coleccion, id);
-        }
+    guardar: async (coleccion, datos, isSyncing = false) => {
+        if (!isSyncing) addToShadow(coleccion, datos);
+        if (!window.supabaseClient) return false;
 
         try {
+            // ARQUITECTURA: Cambiado de insert() a upsert() para erradicar el bug de duplicación
             const { error } = await window.supabaseClient.from('crm_data')
-                .delete()
-                .eq('id', id);
+                .upsert({ id: datos.id, coleccion: coleccion, datos: datos }, { onConflict: 'id' });
             if (error) throw error;
             return true;
         } catch (err) {
             if (!isSyncing && isNetworkError(err)) {
-                enqueueOffline({ action: 'eliminar', coleccion, id });
-                showToast('Sin conexión. Eliminación encolada.', 'warning');
+                enqueueOffline({ action: 'guardar', coleccion, id: datos.id, datos });
                 return true;
             }
             throw err;
@@ -179,32 +127,46 @@ export const DB = {
 
     actualizar: async (coleccion, id, nuevosDatos, isSyncing = false) => {
         if (!isSyncing) {
-            updateInShadow(coleccion, id, nuevosDatos);
+            const list = getLocalShadow(coleccion);
+            const index = list.findIndex(item => item.id === id);
+            const merged = index >= 0 ? { ...list[index], ...nuevosDatos } : { id, ...nuevosDatos };
+            addToShadow(coleccion, merged);
         }
+        
+        if (!window.supabaseClient) return false;
 
         try {
-            const { data, error: errGet } = await window.supabaseClient.from('crm_data')
-                .select('datos')
-                .eq('id', id)
-                .single();
-                
-            if (errGet || !data) {
-                if (errGet && isNetworkError(errGet)) throw errGet;
-                return false;
-            }
-
-            const registroActualizado = { ...data.datos, ...nuevosDatos };
+            // Recuperar registro existente para no sobreescribir keys no especificadas
+            const { data, error: errGet } = await window.supabaseClient.from('crm_data').select('datos').eq('id', id).single();
+            if (errGet && !isNetworkError(errGet)) throw errGet;
+            
+            const registroActualizado = data ? { ...data.datos, ...nuevosDatos } : { id, ...nuevosDatos };
             
             const { error: errUpdate } = await window.supabaseClient.from('crm_data')
-                .update({ datos: registroActualizado })
-                .eq('id', id);
+                .update({ datos: registroActualizado }).eq('id', id);
                 
             if (errUpdate) throw errUpdate;
             return true;
         } catch (err) {
             if (!isSyncing && isNetworkError(err)) {
                 enqueueOffline({ action: 'actualizar', coleccion, id, datos: nuevosDatos });
-                showToast('Sin conexión. Edición guardada localmente.', 'warning');
+                return true;
+            }
+            throw err;
+        }
+    },
+
+    eliminar: async (coleccion, id, isSyncing = false) => {
+        if (!isSyncing) removeFromShadow(coleccion, id);
+        if (!window.supabaseClient) return false;
+
+        try {
+            const { error } = await window.supabaseClient.from('crm_data').delete().eq('id', id);
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            if (!isSyncing && isNetworkError(err)) {
+                enqueueOffline({ action: 'eliminar', coleccion, id });
                 return true;
             }
             throw err;
