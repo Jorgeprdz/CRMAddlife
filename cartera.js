@@ -1,9 +1,22 @@
-// cartera.js - Módulo de Cartera con Autocalculador de Fechas y Filtros
+// /modules/cartera.js - Motor de Gestión de Pólizas (Optimizado)
 import { DB } from './db.js';
 import { showToast, showConfirm } from './utils.js';
 
-let idEdicionActual = null;
-let listaCompletaCartera = []; // Variable global para los filtros
+// Encapsulamiento del Estado (State Management Local)
+const CarteraState = {
+    idEdicion: null,
+    datos: [],
+    
+    resetForm() {
+        this.idEdicion = null;
+        document.getElementById('formulario-titulo').innerText = 'Alta de Póliza';
+        ['c-cliente', 'c-nacimiento', 'c-emision', 'c-poliza', 'c-plan', 'c-variante', 'c-edad-gmm', 'c-forma-pago', 'c-cobro', 'c-prima', 'c-suma'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('c-moneda').value = 'MXN';
+        document.getElementById('c-personal').checked = false;
+        document.getElementById('btn-guardar-cartera').innerText = '💾 Guardar Póliza';
+        document.getElementById('btn-cancelar-edicion').style.display = 'none';
+    }
+};
 
 export function renderCartera() {
     return `
@@ -11,16 +24,16 @@ export function renderCartera() {
             <h2 style="font-size: 16px; margin-bottom: 12px;">📊 Resumen de Cartera</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div style="background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator);">
-                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Total Pólizas</span><br>
+                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Pólizas Vigentes</span><br>
                     <strong id="kpi-total-polizas" style="font-size: 18px; color: var(--text-primary);">0</strong>
                 </div>
                 <div style="background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator);">
-                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Prima Anualizada</span><br>
+                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Prima de Cartera</span><br>
                     <strong id="kpi-prima-total" style="font-size: 18px; color: var(--success);">$0.00</strong>
                 </div>
                 <div style="grid-column: span 2; background: var(--surface-2); padding: 12px; border-radius: 12px; border: 1px solid var(--separator); display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Cobranza crítica (vencida o < 30 días):</span>
-                    <strong id="kpi-alertas" class="badge badge-orange" style="font-size: 13px;">0 pólizas</strong>
+                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Alerta de Cobranza (<= 30 días):</span>
+                    <strong id="kpi-alertas" class="badge badge-green" style="font-size: 13px;">0 pólizas</strong>
                 </div>
             </div>
         </div>
@@ -41,432 +54,212 @@ export function renderCartera() {
 
                 <input id="c-poliza" placeholder="Número de Póliza" style="grid-column: span 2;">
                 
-                <select id="c-plan">
-                    <option value="">Producto específico...</option>
-                    <optgroup label="Seguros de Vida">
-                        <option value="Star Temporal">Star Temporal</option>
-                        <option value="Orvi 99">Orvi 99</option>
-                        <option value="Respaldo Educativo">Respaldo Educativo</option>
-                        <option value="Segubeca">Segubeca</option>
-                        <option value="Respaldo Negocio">Respaldo Negocio</option>
-                        <option value="Mio">Mío</option>
-                        <option value="Imagina Ser">Imagina Ser</option>
-                        <option value="Objetivo Vida">Objetivo Vida</option>
-                        <option value="Nuevo Plenitud">Nuevo Plenitud</option>
-                        <option value="Vida Mujer">Vida Mujer</option>
-                    </optgroup>
-                    <optgroup label="Gastos Médicos Mayores">
-                        <option value="Alfa Medical">Alfa Medical</option>
-                        <option value="Alfa Medical Flex">Alfa Medical Flex</option>
-                        <option value="Alfa Medical Internacional">Alfa Medical Internacional</option>
-                    </optgroup>
+                <select id="c-plan" style="grid-column: span 2;">
+                    <option value="">Producto contratado...</option>
+                    <optgroup label="Seguros de Vida"><option value="Star Temporal">Star Temporal</option><option value="Orvi 99">Orvi 99</option><option value="Segubeca">Segubeca</option><option value="Mio">Mío</option><option value="Vida Mujer">Vida Mujer</option></optgroup>
+                    <optgroup label="Gastos Médicos Mayores"><option value="Alfa Medical">Alfa Medical</option><option value="Alfa Medical Flex">Alfa Medical Flex</option></optgroup>
                 </select>
 
-                <select id="c-variante">
-                    <option value="">Variante / Plazo...</option>
-                    <option value="1">1 Año</option>
-                    <option value="5">5 Años</option>
-                    <option value="6">6 Años / Pagos 6</option>
-                    <option value="10">10 Años / Pagos 10</option>
-                    <option value="15">15 Años / Pagos 15</option>
-                    <option value="20">20 Años / Pagos 20</option>
-                    <option value="Nivelado">Nivelado / >20 Años</option>
-                    <option value="Edad 65">Edad 65</option>
-                    <option value="Prima Única">Prima Única</option>
-                </select>
-
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 11px; color: var(--text-secondary);">Edad al contratar (Solo GMM)</label>
-                    <input id="c-edad-gmm" type="number" placeholder="Ej. 35">
-                </div>
-
-                <select id="c-moneda">
-                    <option value="MXN">MXN - Pesos</option>
-                    <option value="USD">USD - Dólares</option>
-                    <option value="UDIS">UDIS</option>
-                </select>
-
-                <select id="c-forma-pago">
-                    <option value="">Forma de Pago...</option>
-                    <option value="Mensual">Mensual</option>
-                    <option value="Trimestral">Trimestral</option>
-                    <option value="Semestral">Semestral</option>
-                    <option value="Anual">Anual</option>
-                    <option value="Prima Única">Prima Única</option>
-                </select>
-
-                <select id="c-cobro">
-                    <option value="">Conducto...</option>
-                    <option value="Tarjeta de Crédito">Tarjeta de Crédito</option>
-                    <option value="Tarjeta de Débito">Tarjeta de Débito</option>
-                    <option value="Transferencia">Ventanilla / Transferencia</option>
-                </select>
-
+                <select id="c-variante"><option value="">Plazo...</option><option value="1">1 Año</option><option value="5">5 Años</option><option value="10">10 Años</option><option value="Prima Única">Prima Única</option></select>
+                <input id="c-edad-gmm" type="number" placeholder="Edad GMM (Ej. 35)">
+                <select id="c-moneda"><option value="MXN">MXN - Pesos</option><option value="USD">USD - Dólares</option><option value="UDIS">UDIS</option></select>
+                <select id="c-forma-pago"><option value="">Frecuencia...</option><option value="Mensual">Mensual</option><option value="Semestral">Semestral</option><option value="Anual">Anual</option><option value="Prima Única">Prima Única</option></select>
+                <select id="c-cobro" style="grid-column: span 2;"><option value="">Conducto de Cobro...</option><option value="Tarjeta de Crédito">Tarjeta de Crédito</option><option value="Transferencia">Transferencia / Efectivo</option></select>
+                
                 <input id="c-prima" type="number" placeholder="Prima Neta">
                 <input id="c-suma" type="number" placeholder="Suma Asegurada">
 
-                <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; grid-column: span 2;">
-                    <input type="checkbox" id="c-personal" style="width: auto; transform: scale(1.2); margin-left: 4px;">
-                    <label for="c-personal" style="font-size: 13px; color: var(--text-secondary); cursor: pointer;">Es Póliza Personal (Excluir del bono)</label>
+                <div style="display: flex; align-items: center; gap: 8px; grid-column: span 2;">
+                    <input type="checkbox" id="c-personal" style="width: auto; transform: scale(1.2);">
+                    <label for="c-personal" style="font-size: 13px; color: var(--text-secondary);">Póliza Personal (Excluir cálculos de bono)</label>
                 </div>
 
-                <button id="btn-guardar-cartera" class="btn-primary" style="grid-column: span 2; margin-top: 10px;">💾 Guardar Póliza</button>
-                <button id="btn-cancelar-edicion" class="btn-secondary" style="grid-column: span 2; display: none;">❌ Cancelar Edición</button>
+                <button id="btn-guardar-cartera" class="btn-primary" style="grid-column: span 2; margin-top: 10px;">💾 Procesar Póliza</button>
+                <button id="btn-cancelar-edicion" class="btn-secondary" style="grid-column: span 2; display: none;">❌ Cancelar</button>
             </div>
         </div>
 
         <div class="card" style="border: 2px dashed var(--separator); background: transparent;">
-            <h2 style="font-size:16px; margin-bottom:6px;">Mantenimiento de Información</h2>
+            <h2 style="font-size:16px; margin-bottom:6px;">Sincronización Masiva</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
-                <button id="btn-trigger-excel" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    📥 Importar Excel
-                </button>
-                <button id="btn-exportar-excel" class="btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--accent); border-color: var(--accent);">
-                    📤 Exportar Cartera
-                </button>
+                <button id="btn-trigger-excel" class="btn-secondary">📥 Importar Excel</button>
+                <button id="btn-exportar-excel" class="btn-secondary" style="color: var(--accent); border-color: var(--accent);">📤 Exportar</button>
             </div>
         </div>
 
         <div class="card">
-            <h2 style="font-size:16px; margin-bottom: 12px;">Cartera Vigente y Renovaciones</h2>
-            
             <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                <input type="text" id="filtro-texto" placeholder="Buscar cliente, póliza o plan..." style="flex: 1; padding: 8px 12px !important; font-size: 13px;">
-                <select id="filtro-mes" style="width: auto; padding: 8px !important; font-size: 13px;">
-                    <option value="">Cualquier mes</option>
-                    <option value="1">Enero</option>
-                    <option value="2">Febrero</option>
-                    <option value="3">Marzo</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Mayo</option>
-                    <option value="6">Junio</option>
-                    <option value="7">Julio</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Septiembre</option>
-                    <option value="10">Octubre</option>
-                    <option value="11">Noviembre</option>
-                    <option value="12">Diciembre</option>
-                </select>
+                <input type="text" id="filtro-texto" placeholder="Buscar por cliente o póliza..." style="flex: 1;">
+                <select id="filtro-mes" style="width: auto;"><option value="">Mes Pago</option><option value="1">Ene</option><option value="5">May</option><option value="12">Dic</option></select>
             </div>
-
-            <div id="lista-cartera-container" style="display: flex; flex-direction: column; gap: 12px;">
-                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.18; height: 100px; border-radius: 16px;"></div>
-                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.18; height: 100px; border-radius: 16px;"></div>
-                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.18; height: 100px; border-radius: 16px;"></div>
-            </div>
+            <div id="lista-cartera-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
         </div>
     `;
 }
 
 export async function bindCarteraEvents() {
+    // Inyección diferida del script para mejorar tiempo de carga (Performance)
     if (!window.XLSX) {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.async = true;
         document.head.appendChild(script);
     }
 
-    const btnGuardar = document.getElementById('btn-guardar-cartera');
-    const btnCancelar = document.getElementById('btn-cancelar-edicion');
-    const btnExcelTrigger = document.getElementById('btn-trigger-excel');
-    const btnExportar = document.getElementById('btn-exportar-excel');
-    const fileInput = document.getElementById('excel-file-input');
-    const inFiltroTxt = document.getElementById('filtro-texto');
-    const inFiltroMes = document.getElementById('filtro-mes');
+    document.getElementById('btn-guardar-cartera')?.addEventListener('click', () => Controller.guardarPoliza());
+    document.getElementById('btn-cancelar-edicion')?.addEventListener('click', () => CarteraState.resetForm());
+    document.getElementById('btn-trigger-excel')?.addEventListener('click', () => document.getElementById('excel-file-input').click());
+    document.getElementById('btn-exportar-excel')?.addEventListener('click', () => Controller.exportarExcel());
+    document.getElementById('excel-file-input')?.addEventListener('change', (e) => Controller.importarExcel(e));
+    document.getElementById('filtro-texto')?.addEventListener('input', () => Controller.renderLista());
+    document.getElementById('filtro-mes')?.addEventListener('change', () => Controller.renderLista());
 
-    if (btnGuardar) btnGuardar.addEventListener('click', guardarOActualizarPoliza);
-    if (btnCancelar) btnCancelar.addEventListener('click', limpiarFormularioCartera);
-    if (btnExcelTrigger) btnExcelTrigger.addEventListener('click', () => fileInput.click());
-    if (btnExportar) btnExportar.addEventListener('click', exportarCarteraCompleta);
-    if (fileInput) fileInput.addEventListener('change', procesarArchivoExcel);
-    if (inFiltroTxt) inFiltroTxt.addEventListener('input', renderizarListaFiltrada);
-    if (inFiltroMes) inFiltroMes.addEventListener('change', renderizarListaFiltrada);
-
-    await actualizarListadoCartera();
+    await Controller.cargarDatos();
 }
 
-// Algoritmo de cálculo de calendario
-function calcularProximoVencimiento(fechaEmisionStr, formaPago) {
-    if (!fechaEmisionStr) return '';
-    if (formaPago === 'Prima Única') return fechaEmisionStr;
+const Controller = {
+    async cargarDatos() {
+        CarteraState.datos = await DB.obtenerTodos('cartera');
+        this.renderKPIs();
+        this.renderLista();
+    },
 
-    const fEmision = new Date(fechaEmisionStr + 'T12:00:00');
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    let fPago = new Date(fEmision);
-
-    // Iterar sumando el periodo hasta que la fecha de pago sea mayor o igual a hoy
-    while (fPago < hoy) {
-        if (formaPago === 'Mensual') fPago.setMonth(fPago.getMonth() + 1);
-        else if (formaPago === 'Trimestral') fPago.setMonth(fPago.getMonth() + 3);
-        else if (formaPago === 'Semestral') fPago.setMonth(fPago.getMonth() + 6);
-        else if (formaPago === 'Anual') fPago.setFullYear(fPago.getFullYear() + 1);
-        else break;
-    }
-    return fPago.toISOString().split('T')[0];
-}
-
-async function guardarOActualizarPoliza() {
-    const emision = document.getElementById('c-emision').value;
-    const formaPago = document.getElementById('c-forma-pago').value;
-    const proximoPagoCalculado = calcularProximoVencimiento(emision, formaPago);
-
-    const datosPoliza = {
-        cliente: document.getElementById('c-cliente').value.trim(),
-        nacimiento: document.getElementById('c-nacimiento').value,
-        emision: emision,
-        poliza: document.getElementById('c-poliza').value.trim(),
-        plan: document.getElementById('c-plan').value,
-        variante: document.getElementById('c-variante').value,
-        edadGmm: document.getElementById('c-edad-gmm').value,
-        moneda: document.getElementById('c-moneda').value,
-        formaPago: formaPago,
-        conductoCobro: document.getElementById('c-cobro').value,
-        prima: Number(document.getElementById('c-prima').value) || 0,
-        suma: Number(document.getElementById('c-suma').value) || 0,
-        fechaPago: proximoPagoCalculado,
-        esPersonal: document.getElementById('c-personal').checked
-    };
-
-    if (!datosPoliza.cliente || !datosPoliza.poliza || !datosPoliza.emision) {
-        showToast('Faltan datos obligatorios: Cliente, Número de Póliza y Fecha de Emisión.', 'danger');
-        return;
-    }
-
-    try {
-        if (idEdicionActual) {
-            await DB.actualizar('cartera', idEdicionActual, datosPoliza);
-        } else {
-            datosPoliza.id = 'pol_' + Date.now();
-            await DB.guardar('cartera', datosPoliza);
+    _calcularProximoVencimiento(fechaEmisionStr, formaPago) {
+        if (!fechaEmisionStr || formaPago === 'Prima Única') return fechaEmisionStr;
+        const fPago = new Date(fechaEmisionStr + 'T12:00:00');
+        const hoy = new Date();
+        hoy.setHours(0,0,0,0);
+        
+        while (fPago < hoy) {
+            if (formaPago === 'Mensual') fPago.setMonth(fPago.getMonth() + 1);
+            else if (formaPago === 'Semestral') fPago.setMonth(fPago.getMonth() + 6);
+            else if (formaPago === 'Anual') fPago.setFullYear(fPago.getFullYear() + 1);
+            else break;
         }
-        limpiarFormularioCartera();
-        await actualizarListadoCartera();
-    } catch (err) {
-        console.error(err);
+        return fPago.toISOString().split('T')[0];
+    },
+
+    async guardarPoliza() {
+        const payload = {
+            cliente: document.getElementById('c-cliente').value.trim(),
+            nacimiento: document.getElementById('c-nacimiento').value,
+            emision: document.getElementById('c-emision').value,
+            poliza: document.getElementById('c-poliza').value.trim(),
+            plan: document.getElementById('c-plan').value,
+            variante: document.getElementById('c-variante').value,
+            edadGmm: document.getElementById('c-edad-gmm').value,
+            moneda: document.getElementById('c-moneda').value,
+            formaPago: document.getElementById('c-forma-pago').value,
+            conductoCobro: document.getElementById('c-cobro').value,
+            prima: Number(document.getElementById('c-prima').value) || 0,
+            suma: Number(document.getElementById('c-suma').value) || 0,
+            esPersonal: document.getElementById('c-personal').checked
+        };
+
+        if (!payload.cliente || !payload.poliza || !payload.emision) return showToast('Faltan datos obligatorios.', 'danger');
+        payload.fechaPago = this._calcularProximoVencimiento(payload.emision, payload.formaPago);
+
+        if (CarteraState.idEdicion) {
+            await DB.actualizar('cartera', CarteraState.idEdicion, payload);
+        } else {
+            payload.id = 'pol_' + Date.now();
+            await DB.guardar('cartera', payload);
+        }
+        
+        CarteraState.resetForm();
+        await this.cargarDatos();
+        showToast('Póliza procesada correctamente.', 'success');
+    },
+
+    // OPTIMIZACIÓN: Promise.all para procesamiento en lote (Evita bloquear el Main Thread)
+    async importarExcel(e) {
+        const file = e.target.files[0];
+        if (!file || !window.XLSX) return;
+        
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                showToast('Procesando archivo... por favor espera.', 'warning');
+                const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                
+                const promesasGuardado = rows.map(row => {
+                    if (!row.Cliente && !row.Poliza) return Promise.resolve();
+                    const emision = row.Emision || new Date().toISOString().split('T')[0];
+                    const fp = row.FormaPago || 'Anual';
+                    const data = {
+                        id: 'pol_' + Date.now() + '_' + Math.random().toString(36).substring(2),
+                        cliente: row.Cliente || 'Sin Nombre', emision: emision, poliza: String(row.Poliza),
+                        plan: row.Plan || '', formaPago: fp, prima: Number(row.Prima) || 0,
+                        fechaPago: row.FechaPago || this._calcularProximoVencimiento(emision, fp)
+                    };
+                    return DB.guardar('cartera', data);
+                });
+
+                await Promise.all(promesasGuardado); // Batch processing paralelo
+                await this.cargarDatos();
+                showToast(`Sincronización masiva de ${promesasGuardado.length} registros exitosa.`, 'success');
+            } catch (err) {
+                showToast('Error estructurando Excel. Verifica el formato.', 'danger');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    renderKPIs() {
+        const fmt = n => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+        const hoy = new Date();
+        const criticas = CarteraState.datos.filter(p => p.fechaPago && Math.ceil((new Date(p.fechaPago+'T12:00:00') - hoy)/86400000) <= 30).length;
+
+        document.getElementById('kpi-total-polizas').innerText = CarteraState.datos.length;
+        document.getElementById('kpi-prima-total').innerText = fmt(CarteraState.datos.reduce((sum, p) => sum + (Number(p.prima) || 0), 0));
+        
+        const kpiAlertas = document.getElementById('kpi-alertas');
+        if (kpiAlertas) {
+            kpiAlertas.innerText = `${criticas} pólizas`;
+            kpiAlertas.className = criticas > 0 ? 'badge badge-red' : 'badge badge-green';
+        }
+    },
+
+    renderLista() {
+        const container = document.getElementById('lista-cartera-container');
+        if (!container) return;
+        const txt = (document.getElementById('filtro-texto')?.value || '').toLowerCase();
+        
+        const filtrados = CarteraState.datos.filter(p => p.cliente.toLowerCase().includes(txt) || p.poliza.toLowerCase().includes(txt));
+        const fmt = n => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+        const hoy = new Date();
+
+        container.innerHTML = filtrados.map(p => {
+            const dias = p.fechaPago ? Math.ceil((new Date(p.fechaPago+'T12:00:00') - hoy)/86400000) : 99;
+            const badge = p.formaPago === 'Prima Única' ? 'badge-green' : dias < 0 ? 'badge-red' : dias <= 15 ? 'badge-orange' : 'badge-blue';
+            const icon = p.formaPago === 'Prima Única' ? '✅' : dias < 0 ? '🚨' : dias <= 15 ? '⚠️' : '🟢';
+
+            return `
+                <div style="background:var(--surface-2); padding:16px; border-radius:16px; border:1px solid var(--separator);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h3 style="margin:0; font-size:14px;">${p.cliente}</h3>
+                            <span style="font-size:12px; color:var(--text-secondary);">Pol: <strong>${p.poliza}</strong> | ${p.plan}</span>
+                        </div>
+                        <span class="badge ${badge}">${icon} ${p.fechaPago || ''}</span>
+                    </div>
+                    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+                        <button onclick="window.cargarPolizaParaEditar('${p.id}')" class="btn-secondary" style="padding:4px 10px!important; font-size:12px;">✏️ Editar</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
-}
+};
 
-window.cargarPolizaParaEditar = async (id) => {
-    const p = listaCompletaCartera.find(x => x.id === id);
+window.cargarPolizaParaEditar = (id) => {
+    const p = CarteraState.datos.find(x => x.id === id);
     if (!p) return;
-
-    idEdicionActual = id;
+    CarteraState.idEdicion = id;
     document.getElementById('formulario-titulo').innerText = '✏️ Editando Póliza';
-    document.getElementById('c-cliente').value = p.cliente || '';
-    document.getElementById('c-nacimiento').value = p.nacimiento || '';
-    document.getElementById('c-emision').value = p.emision || '';
-    document.getElementById('c-poliza').value = p.poliza || '';
-    document.getElementById('c-plan').value = p.plan || '';
-    document.getElementById('c-variante').value = p.variante || '';
-    document.getElementById('c-edad-gmm').value = p.edadGmm || '';
-    document.getElementById('c-moneda').value = p.moneda || 'MXN';
-    document.getElementById('c-forma-pago').value = p.formaPago || '';
-    document.getElementById('c-cobro').value = p.conductoCobro || '';
-    document.getElementById('c-prima').value = p.prima || '';
-    document.getElementById('c-suma').value = p.suma || '';
-    document.getElementById('c-personal').checked = p.esPersonal || false;
-
-    document.getElementById('btn-guardar-cartera').innerText = '🔄 Actualizar Datos';
+    ['c-cliente', 'c-emision', 'c-poliza', 'c-plan', 'c-forma-pago', 'c-prima'].forEach(k => document.getElementById(k).value = p[k.replace('c-','')] || '');
     document.getElementById('btn-cancelar-edicion').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
-
-function limpiarFormularioCartera() {
-    idEdicionActual = null;
-    document.getElementById('formulario-titulo').innerText = 'Alta de Póliza';
-    ['c-cliente', 'c-nacimiento', 'c-emision', 'c-poliza', 'c-plan', 'c-variante', 'c-edad-gmm', 'c-forma-pago', 'c-cobro', 'c-prima', 'c-suma'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('c-moneda').value = 'MXN';
-    document.getElementById('c-personal').checked = false;
-    document.getElementById('btn-guardar-cartera').innerText = '💾 Guardar Póliza';
-    document.getElementById('btn-cancelar-edicion').style.display = 'none';
-}
-
-async function actualizarListadoCartera() {
-    listaCompletaCartera = await DB.obtenerTodos('cartera');
-    
-    // Calcular KPIs
-    const formatearDinero = (num) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
-    const hoy = new Date();
-    const alertasCriticas = listaCompletaCartera.filter(p => {
-        if (!p.fechaPago) return false;
-        const fPago = new Date(p.fechaPago + 'T12:00:00');
-        const diffDias = Math.ceil((fPago - hoy) / 86400000);
-        return diffDias <= 30;
-    }).length;
-
-    document.getElementById('kpi-total-polizas').innerText = listaCompletaCartera.length;
-    document.getElementById('kpi-prima-total').innerText = formatearDinero(listaCompletaCartera.reduce((acum, p) => acum + (Number(p.prima) || 0), 0));
-    
-    const kpiAlertas = document.getElementById('kpi-alertas');
-    if (kpiAlertas) {
-        kpiAlertas.innerText = `${alertasCriticas} pólizas`;
-        kpiAlertas.className = alertasCriticas > 0 ? 'badge badge-red' : 'badge badge-green';
-    }
-
-    renderizarListaFiltrada();
-}
-
-function renderizarListaFiltrada() {
-    const container = document.getElementById('lista-cartera-container');
-    if (!container) return;
-
-    const textoFiltro = (document.getElementById('filtro-texto')?.value || '').toLowerCase();
-    const mesFiltro = document.getElementById('filtro-mes')?.value;
-    const hoy = new Date();
-    const formatearDinero = (num) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
-
-    const filtrados = listaCompletaCartera.filter(p => {
-        const coincideTexto = p.cliente.toLowerCase().includes(textoFiltro) || p.poliza.toLowerCase().includes(textoFiltro) || (p.plan || '').toLowerCase().includes(textoFiltro);
-        let coincideMes = true;
-        if (mesFiltro && p.fechaPago) {
-            const fPago = new Date(p.fechaPago + 'T12:00:00');
-            coincideMes = (fPago.getMonth() + 1).toString() === mesFiltro;
-        }
-        return coincideTexto && coincideMes;
-    });
-
-    if (filtrados.length === 0) {
-        container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 15px;">No se encontraron registros que coincidan con la búsqueda.</div>`;
-        return;
-    }
-
-    container.innerHTML = filtrados.map(p => {
-        const fPago = p.fechaPago ? new Date(p.fechaPago + 'T12:00:00') : new Date();
-        const diffDias = Math.ceil((fPago - hoy) / 86400000);
-        
-        let badgeStyle = 'badge-blue';
-        let alertaIcono = '🟢';
-        if (p.formaPago === 'Prima Única') { badgeStyle = 'badge-green'; alertaIcono = '✅ Pagada'; }
-        else if (diffDias < 0) { badgeStyle = 'badge-red'; alertaIcono = '🚨 Vencida'; }
-        else if (diffDias <= 15) { badgeStyle = 'badge-orange'; alertaIcono = '⚠️ Por vencer'; }
-
-        const etiquetaPersonal = p.esPersonal ? `<span class="badge badge-orange" style="font-size:10px; margin-top:2px;">Póliza Personal</span>` : '';
-
-        return `
-            <div style="background: var(--surface-2); padding: 16px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--separator);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <h3 style="margin: 0; font-size: 14px; color: var(--text-primary);">${p.cliente}</h3>
-                        <span style="font-size: 12px; color: var(--text-secondary);">Póliza: <strong>${p.poliza}</strong> | ${p.plan} ${p.variante ? '('+p.variante+' años)' : ''}</span>
-                        <br>${etiquetaPersonal}
-                    </div>
-                    <span class="badge ${badgeStyle}">${alertaIcono} (${p.fechaPago || 'N/A'})</span>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; background: var(--surface); padding: 10px; border-radius: 12px; border: 1px solid var(--separator); color: var(--text-primary);">
-                    <div><span style="color: var(--text-secondary); font-size: 11px;">Prima Neta:</span><br><strong>${formatearDinero(p.prima)} ${p.moneda}</strong></div>
-                    <div><span style="color: var(--text-secondary); font-size: 11px;">Forma Pago:</span><br><strong>${p.formaPago}</strong></div>
-                </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
-                    <button onclick="registrarPagoRenovacion('${p.id}')" class="btn-primary" style="padding: 6px 12px !important; font-size: 12px; background: var(--success) !important;">✅ Marcar Pago</button>
-                    <button onclick="cargarPolizaParaEditar('${p.id}')" class="btn-secondary" style="padding: 6px 12px !important; font-size: 12px;">✏️ Editar</button>
-                    <button onclick="eliminarPolizaDobleCheck('${p.id}')" class="btn-secondary" style="padding: 6px 12px !important; font-size: 12px; color: var(--danger) !important; border-color: var(--danger) !important;">🗑️ Eliminar</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-window.registrarPagoRenovacion = async (id) => {
-    const poliza = listaCompletaCartera.find(p => p.id === id);
-    if (!poliza) return;
-
-    if (poliza.formaPago === 'Prima Única') {
-        showToast('Esta póliza es de Prima Única y no requiere renovaciones.', 'warning');
-        return;
-    }
-
-    const confirmacion = await showConfirm(`¿Confirmas el pago registrado para ${poliza.cliente} de su póliza ${poliza.poliza}?`, 'Registrar Cobranza', 'Confirmar Pago');
-    if (!confirmacion) return;
-
-    // Calcular la siguiente fecha partiendo de la que tenía registrada
-    const fechaActual = new Date(poliza.fechaPago + 'T12:00:00');
-    if (poliza.formaPago === 'Mensual') fechaActual.setMonth(fechaActual.getMonth() + 1);
-    else if (poliza.formaPago === 'Trimestral') fechaActual.setMonth(fechaActual.getMonth() + 3);
-    else if (poliza.formaPago === 'Semestral') fechaActual.setMonth(fechaActual.getMonth() + 6);
-    else if (poliza.formaPago === 'Anual') fechaActual.setFullYear(fechaActual.getFullYear() + 1);
-
-    const nuevaFechaStr = fechaActual.toISOString().split('T')[0];
-    
-    await DB.actualizar('cartera', id, { fechaPago: nuevaFechaStr });
-    await actualizarListadoCartera();
-    showToast(`Cobranza actualizada. Próximo vencimiento: ${nuevaFechaStr}`, 'success');
-};
-
-window.eliminarPolizaDobleCheck = async (id) => {
-    const confirmarPrimero = await showConfirm("¿Estás seguro de que deseas eliminar este registro de la base de datos?", "Eliminar Póliza", "Eliminar", true);
-    if (confirmarPrimero) {
-        const confirmarSegundo = await showConfirm("⚠️ ADVERTENCIA: Esta acción es irreversible y afectará el cálculo de tus bonos y proyecciones financieras. ¿Confirmar eliminación definitiva?", "Eliminación Definitiva", "Confirmar Eliminación", true);
-        if (confirmarSegundo) {
-            await DB.eliminar('cartera', id);
-            await actualizarListadoCartera();
-        }
-    }
-};
-
-async function exportarCarteraCompleta() {
-    try {
-        const registros = listaCompletaCartera;
-        if(registros.length === 0) return showToast('No hay datos para exportar.', 'warning');
-        const matrizDatos = registros.map(p => ({
-            'Cliente': p.cliente, 'Nacimiento': p.nacimiento, 'Emision': p.emision, 
-            'Poliza': p.poliza, 'Plan': p.plan, 'Variante': p.variante, 'EdadGMM': p.edadGmm,
-            'Moneda': p.moneda, 'FormaPago': p.formaPago, 'Conducto': p.conductoCobro, 
-            'Prima': p.prima, 'Suma': p.suma, 'FechaPago': p.fechaPago, 'EsPersonal': p.esPersonal ? 'SI' : 'NO'
-        }));
-
-        const hoja = XLSX.utils.json_to_sheet(matrizDatos);
-        const libro = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(libro, hoja, 'Cartera');
-        XLSX.writeFile(libro, `Cartera_Addlife_${new Date().toISOString().split('T')[0]}.xlsx`);
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-function procesarArchivoExcel(e) {
-    const archivo = e.target.files[0];
-    if (!archivo) return;
-    const lector = new FileReader();
-    lector.onload = async (evt) => {
-        try {
-            const data = new Uint8Array(evt.target.result);
-            const libro = XLSX.read(data, { type: 'array' });
-            const filas = XLSX.utils.sheet_to_json(libro.Sheets[libro.SheetNames[0]]);
-            let cargados = 0;
-            for (const fila of filas) {
-                if(!fila.Cliente && !fila.Poliza) continue;
-                
-                const emisionExcel = fila.Emision || fila.emision || new Date().toISOString().split('T')[0];
-                const formaPagoExcel = fila.FormaPago || fila.formapago || 'Anual';
-                const fechaCalculada = fila.FechaPago || fila.fechapago || calcularProximoVencimiento(emisionExcel, formaPagoExcel);
-
-                const nuevaPoliza = {
-                    id: 'pol_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-                    cliente: fila.Cliente || fila.cliente || 'Registro Importado',
-                    nacimiento: fila.Nacimiento || fila.nacimiento || '',
-                    emision: emisionExcel,
-                    poliza: String(fila.Poliza || fila.poliza || Date.now()),
-                    plan: fila.Plan || fila.plan || '',
-                    variante: String(fila.Variante || fila.variante || ''),
-                    edadGmm: fila.EdadGMM || fila.edadgmm || '',
-                    moneda: fila.Moneda || fila.moneda || 'MXN',
-                    formaPago: formaPagoExcel,
-                    conductoCobro: fila.Conducto || fila.conducto || '',
-                    prima: Number(fila.Prima || fila.prima || 0),
-                    suma: Number(fila.Suma || fila.suma || 0),
-                    fechaPago: fechaCalculada,
-                    esPersonal: String(fila.EsPersonal || fila.espersonal).toUpperCase() === 'SI'
-                };
-                await DB.guardar('cartera', nuevaPoliza);
-                cargados++;
-            }
-            showToast(`Sincronización masiva exitosa. Se añadieron ${cargados} pólizas.`, 'success');
-            await actualizarListadoCartera();
-        } catch (err) {
-            showToast('Error al leer la estructura interna del archivo Excel.', 'danger');
-        }
-    };
-    lector.readAsArrayBuffer(archivo);
-}

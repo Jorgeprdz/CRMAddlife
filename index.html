@@ -3,47 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CRM Addlife</title>
+    <title>CRM Addlife Core</title>
+    
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" id="meta-theme-color" content="#F2F2F7">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <style>
-        #ai-chat-messages {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .msg-row {
-            display: flex;
-            width: 100%;
-        }
-        .msg-row.user-row { justify-content: flex-end; }
-        .msg-row.ia-row { justify-content: flex-start; }
-        
-        .chat-bubble {
-            max-width: 75%;
-            padding: 10px 14px;
-            border-radius: 20px;
-            font-size: 14px;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-        .user-bubble {
-            background-color: #007AFF;
-            color: #fff;
-            border-bottom-right-radius: 4px;
-        }
-        .ia-bubble {
-            background-color: var(--surface-2);
-            color: var(--text-primary);
-            border-bottom-left-radius: 4px;
-            border: 1px solid var(--separator);
-        }
-    </style>
 </head>
 <body>
 
@@ -67,10 +35,10 @@
             <span class="icon">🏠</span><span class="label">Inicio</span>
         </button>
         <button class="nav-btn" data-target="prospeccion">
-            <span class="icon">🎯</span><span class="label">Prospectos</span>
+            <span class="icon">🎯</span><span class="label">Embudo</span>
         </button>
         <button class="nav-btn" data-target="referidos">
-            <span class="icon">👥</span><span class="label">Referidos</span>
+            <span class="icon">👥</span><span class="label">Directorio</span>
         </button>
         <button class="nav-btn" data-target="actividad">
             <span class="icon">📈</span><span class="label">Actividad</span>
@@ -86,34 +54,45 @@
         </button>
     </nav>
 
-    <div id="ai-chat-bubble" style="position:fixed; bottom:95px; right:20px; width:54px; height:54px; background:var(--accent); border-radius:50%; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,122,255,0.35); z-index:1000; transition:transform 0.2s ease;">
-        <span style="font-size:24px; color:white;">💬</span>
+    <div id="ai-chat-bubble" class="chat-bubble-trigger">
+        <span class="icon-chat">💬</span>
     </div>
 
-    <div id="ai-chat-window" style="position:fixed; bottom:165px; right:20px; width:calc(100vw - 40px); max-width:340px; height:60vh; max-height:440px; background:var(--blur-bg-nav); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); border-radius:24px; display:none; flex-direction:column; box-shadow:var(--shadow-float); border:1px solid var(--separator); z-index:1000; overflow:hidden; transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);">
-        
-        <div style="padding:14px 16px; border-bottom:1px solid var(--separator); font-weight:600; display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.02);">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:18px;">🎯</span>
-                <span style="font-size:14px; letter-spacing:-0.2px; color:var(--text-primary);">Mentor Comercial</span>
+    <div id="ai-chat-window" class="chat-window-modal">
+        <div class="chat-header">
+            <div class="chat-title-group">
+                <span class="icon-bot">🎯</span>
+                <span class="title-bot">Mentor Comercial</span>
             </div>
-            <div id="close-chat" style="cursor:pointer; width:22px; height:22px; background:var(--separator); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-secondary);">✕</div>
+            <div id="close-chat" class="chat-close-btn">✕</div>
         </div>
         
-        <div id="ai-chat-messages" style="flex:1; padding:16px; overflow-y:auto;">
+        <div id="ai-chat-messages" class="chat-messages-container">
             <div class="msg-row ia-row">
-                <div class="chat-bubble ia-bubble">Pregunta algo</div>
+                <div class="chat-bubble ia-bubble">Pregunta algo sobre estrategia de cierre, objeciones o sobre tu cartera...</div>
             </div>
         </div>
         
-        <div style="padding:10px 12px; border-top:1px solid var(--separator); background:var(--surface); display:flex; gap:8px; align-items:center;">
-            <input id="ai-chat-input" placeholder="Escribe aquí..." style="flex:1; border:1px solid var(--separator); border-radius:18px; padding:8px 14px; background:var(--surface-2); font-size:13px; outline:none; width:auto;">
-            <button id="ai-chat-send" style="width:34px; height:34px; border-radius:50% !important; background:var(--accent) !important; border:none; color:white; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0 !important; flex-shrink:0;">
-                <span style="font-size:14px; font-weight:bold;">↑</span>
-            </button>
+        <div class="chat-input-area">
+            <input id="ai-chat-input" placeholder="Escribe tu duda comercial..." autocomplete="off">
+            <button id="ai-chat-send" class="chat-send-btn">↑</button>
         </div>
     </div>
 
     <script type="module" src="app.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('[PWA] Service Worker registrado exitosamente con scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('[PWA] Error al registrar el Service Worker:', error);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>

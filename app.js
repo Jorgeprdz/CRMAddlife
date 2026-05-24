@@ -24,7 +24,7 @@ class AuthService {
     init() {
         if (window.supabase) {
             this.client = window.supabase.createClient(ENV.SUPABASE_URL, ENV.SUPABASE_KEY);
-            window.supabaseClient = this.client; // Link para legacy files (db.js)
+            window.supabaseClient = this.client; // Link para legacy files
             return true;
         }
         return false;
@@ -69,7 +69,6 @@ class Router {
 
         try {
             this.contentArea.innerHTML = this.routes[moduleName].render();
-            // Asincronía mínima para permitir pintar el DOM antes de inyectar listeners
             setTimeout(() => this.routes[moduleName].bind(), 10);
         } catch (e) {
             console.error(`[Router] Fallo al cargar módulo: ${moduleName}`, e);
@@ -83,7 +82,7 @@ class Router {
 class AIService {
     constructor(authClient) {
         this.auth = authClient;
-        this.history = []; // Historial de conversación dinámico
+        this.history = []; // Historial de conversación
         this.MAX_HISTORY = 6;
     }
 
@@ -114,11 +113,9 @@ class AIService {
         uiManager.addMessage(userMsg, 'user');
         const uniqueId = uiManager.addLoadingBubble();
 
-        // Extraer métricas de negocio en tiempo real para inyectar al modelo
         const cartera = await DB.obtenerTodos('cartera');
         const metrics = this._calcMetrics(cartera);
 
-        // Gestión de memoria
         this.history.push(`Asesor: ${userMsg}`);
         if (this.history.length > this.MAX_HISTORY) this.history.shift();
 
@@ -257,7 +254,7 @@ class AppManager {
             
             new ChatbotManager(this.ai);
             this.router.navigate('dashboard');
-            processOfflineQueue(); // Trigger de sincronización
+            processOfflineQueue();
         }
     }
 
@@ -284,7 +281,6 @@ class AppManager {
     }
 
     bindGlobalListeners() {
-        // Event Delegation Pasivo
         document.body.addEventListener('click', (e) => {
             const nav = e.target.closest('.nav-btn');
             if (nav && !nav.classList.contains('nav-btn-logout')) this.router.navigate(nav.getAttribute('data-target'));
@@ -303,7 +299,6 @@ document.addEventListener('DOMContentLoaded', () => App.init());
 
 // =========================================================================
 // PATRÓN PUENTE (LEGACY SUPPORT)
-// Evita que los módulos que no hemos refactorizado aún fallen de golpe
 // =========================================================================
 window.navigateTo = (modulo) => App.router.navigate(modulo);
 window.loginConGoogle = () => App.auth.login();

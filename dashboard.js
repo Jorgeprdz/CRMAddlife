@@ -1,34 +1,37 @@
-// dashboard.js - Tablero Automático y Dinámico
+// /modules/dashboard.js - Dashboard Ejecutivo (Arquitectura Desacoplada)
 import { DB } from './db.js';
+import { getSupabase } from './app.js';
 
 export function renderDashboard() {
+    // UI inicial inmutable con Skeletons. No se destruye, se hidrata.
     return `
         <div id="dashboard-container" style="display: flex; flex-direction: column; gap: 4px;">
-            <!-- Skeleton Card 1: Saludo -->
-            <div class="skeleton-card skeleton-shimmer" style="height: 90px; border: none; background: var(--separator); opacity: 0.15; border-radius: var(--radius-card); margin: 16px;"></div>
-            
-            <!-- Skeleton Card 2: Radar de Fidelización -->
+            <div class="card" style="background: var(--accent) !important; color: white !important; border: none;">
+                <h1 id="dash-saludo" style="margin: 0; font-size: 22px; color: white !important;">
+                    <div class="skeleton-text skeleton-shimmer" style="width: 200px; background: rgba(255,255,255,0.2);"></div>
+                </h1>
+                <p style="margin: 4px 0 0 0; opacity: 0.9; font-size: 14px; color: white !important;">Estatus de tu negocio al día de hoy.</p>
+            </div>
+
             <div class="card" style="border-left: 5px solid var(--warning) !important;">
                 <h2 class="fw-600" style="font-size:16px;">🎯 Radar de Fidelización</h2>
-                <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+                <div id="dash-fidelizacion" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
                     <div class="skeleton-text skeleton-shimmer" style="width: 85%;"></div>
                     <div class="skeleton-text skeleton-shimmer" style="width: 70%;"></div>
                 </div>
             </div>
-            
-            <!-- Skeleton Card 3: Productividad -->
+
             <div class="card" style="border-left: 5px solid var(--accent) !important;">
-                <h2 class="fw-600" style="font-size:16px;">📊 Productividad</h2>
-                <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+                <h2 class="fw-600" style="font-size:16px;">📊 Productividad Semanal</h2>
+                <div id="dash-productividad" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
                     <div class="skeleton-text skeleton-shimmer" style="width: 90%;"></div>
                     <div class="skeleton-text skeleton-shimmer" style="width: 55%; height: 20px; border-radius: 10px;"></div>
                 </div>
             </div>
-            
-            <!-- Skeleton Card 4: Control de Cartera -->
+
             <div class="card" style="border-left: 5px solid var(--danger) !important;">
-                <h2 class="fw-600" style="font-size:16px;">💼 Control de Cartera</h2>
-                <div style="margin-top:10px;">
+                <h2 class="fw-600" style="font-size:16px;">💼 Control de Cartera (Mes Actual)</h2>
+                <div id="dash-cartera" style="margin-top:10px;">
                     <div class="skeleton-text skeleton-shimmer" style="width: 95%;"></div>
                 </div>
             </div>
@@ -37,137 +40,145 @@ export function renderDashboard() {
 }
 
 export async function bindDashboardEvents() {
-    const container = document.getElementById('dashboard-container');
-    if (!container) return;
-
-    const hora = new Date().getHours();
-    let saludo = hora >= 5 && hora < 12 ? 'Buenos días' : hora >= 12 && hora < 19 ? 'Buenas tardes' : 'Buenas noches';
-
-    let nombreUsuario = 'Asesor';
-    if (window.supabaseClient) {
-        const { data: { user } } = await window.supabaseClient.auth.getUser();
-        if (user && user.user_metadata && user.user_metadata.full_name) {
-            nombreUsuario = user.user_metadata.full_name.split(' ')[0];
-        }
-    }
-
-    const historial = await DB.obtenerTodos('historial_actividad');
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    const lunes = new Date(hoy);
-    const diaDiferencia = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1;
-    lunes.setDate(hoy.getDate() - diaDiferencia);
-    
-    const viernes = new Date(lunes);
-    viernes.setDate(lunes.getDate() + 4);
-    viernes.setHours(23, 59, 59, 999);
-
-    let puntosSemana = 0;
-    historial.forEach(reg => {
-        const fechaReg = new Date(reg.fecha);
-        if (fechaReg >= lunes && fechaReg <= viernes) {
-            puntosSemana += Number(reg.puntos || 0);
-        }
-    });
-
-    const metaTotal = 125;
-    const puntosFaltantes = Math.max(0, metaTotal - puntosSemana);
-    
-    const numDiaSemana = new Date().getDay();
-    let diasRestantes = (numDiaSemana >= 1 && numDiaSemana <= 5) ? 6 - numDiaSemana : 0;
-
-    let cuotaDiariaTexto = '';
-    if (puntosFaltantes <= 0) cuotaDiariaTexto = `<div class="badge badge-green mt-8">🎉 ¡Meta semanal cumplida con éxito!</div>`;
-    else if (diasRestantes > 0) cuotaDiariaTexto = `<div class="badge badge-red mt-8">Debes hacer ${Math.ceil(puntosFaltantes / diasRestantes)} puntos diarios</div>`;
-    else cuotaDiariaTexto = `<div class="badge badge-orange mt-8">Fin de semana: Faltaron ${puntosFaltantes} puntos para la meta</div>`;
-
-    const cartera = await DB.obtenerTodos('cartera');
-    const mesActual = hoy.getMonth();
-    const anioActual = hoy.getFullYear();
-
-    // ---- LÓGICA: RADAR DE FIDELIZACIÓN ----
-    const alertasFidelizacion = [];
-
-    cartera.forEach(p => {
-        if (p.nacimiento) {
-            const fNac = new Date(p.nacimiento + 'T12:00:00');
-            
-            // 1. Próximo Cumpleaños
-            let proxCumple = new Date(hoy.getFullYear(), fNac.getMonth(), fNac.getDate());
-            if (proxCumple < hoy) proxCumple.setFullYear(hoy.getFullYear() + 1);
-            const diasCumple = Math.ceil((proxCumple - hoy) / 86400000);
-            
-            if (diasCumple <= 30) {
-                alertasFidelizacion.push(`<div style="display:flex; justify-content:space-between; font-size:13px; border-bottom:1px solid var(--separator); padding-bottom:6px; margin-bottom:6px;"><span>🎂 <strong>${p.cliente}</strong> (Cumpleaños)</span> <span>Faltan ${diasCumple} días</span></div>`);
-            }
-
-            // 2. Cambio de Edad Actuarial (6 meses desde el cumple)
-            let proxActuarial = new Date(proxCumple);
-            proxActuarial.setMonth(proxActuarial.getMonth() - 6);
-            if (proxActuarial < hoy) proxActuarial.setFullYear(proxActuarial.getFullYear() + 1);
-            const diasActuarial = Math.ceil((proxActuarial - hoy) / 86400000);
-
-            if (diasActuarial <= 30) {
-                alertasFidelizacion.push(`<div style="display:flex; justify-content:space-between; font-size:13px; border-bottom:1px solid var(--separator); padding-bottom:6px; margin-bottom:6px;"><span>📈 <strong>${p.cliente}</strong> (Sube Prima por Edad)</span> <span style="color:var(--warning);">Aumenta en ${diasActuarial} días</span></div>`);
-            }
-        }
-
-        if (p.emision) {
-            // 3. Aniversario de Póliza
-            const fEmision = new Date(p.emision + 'T12:00:00');
-            let proxAniv = new Date(hoy.getFullYear(), fEmision.getMonth(), fEmision.getDate());
-            if (proxAniv < hoy) proxAniv.setFullYear(hoy.getFullYear() + 1);
-            const diasAniv = Math.ceil((proxAniv - hoy) / 86400000);
-            
-            if (diasAniv <= 30) {
-                alertasFidelizacion.push(`<div style="display:flex; justify-content:space-between; font-size:13px; border-bottom:1px solid var(--separator); padding-bottom:6px; margin-bottom:6px;"><span>🛡️ <strong>${p.poliza}</strong> (Aniversario Póliza)</span> <span>Faltan ${diasAniv} días</span></div>`);
-            }
-        }
-    });
-
-    let textoFidelizacion = alertasFidelizacion.length > 0 
-        ? alertasFidelizacion.join('') 
-        : '<p style="font-size:13px; color:var(--text-secondary);">No hay cumpleaños, aniversarios ni cambios de edad en los próximos 30 días.</p>';
-
-    // ---- LÓGICA: COBRANZA ----
-    const pendientesMes = cartera.filter(p => {
-        if (!p.fechaPago) return false;
-        const f = new Date(p.fechaPago + 'T12:00:00');
-        return f.getMonth() === mesActual && f.getFullYear() === anioActual;
-    });
-
-    let textoCartera = '';
-    if (pendientesMes.length === 0) {
-        textoCartera = `<p style="color: var(--success); font-size: 14px; margin-top: 5px;">Todo en orden. No tienes pólizas pendientes de pago para este mes.</p>`;
-    } else {
-        const listaNombres = pendientesMes.map(p => `<strong>${p.cliente}</strong>`).join(', ');
-        const verbo = pendientesMes.length > 1 ? 'están pendientes' : 'está pendiente';
-        textoCartera = `<p style="color: var(--danger); font-size: 14px; margin-top: 5px;">Las pólizas de ${listaNombres} ${verbo} de pago este mes.</p>`;
-    }
-
-    container.innerHTML = `
-        <div class="card" style="background: var(--accent) !important; color: white !important; border: none;">
-            <h1 style="margin: 0; font-size: 22px; color: white !important;">${saludo}, ${nombreUsuario}. 👋</h1>
-            <p style="margin: 4px 0 0 0; opacity: 0.9; font-size: 14px; color: white !important;">Estatus de tu negocio al día de hoy.</p>
-        </div>
-
-        <div class="card" style="border-left: 5px solid var(--warning) !important;">
-            <h2 class="fw-600" style="font-size:16px;">🎯 Radar de Fidelización</h2>
-            <div style="margin-top:10px;">
-                ${textoFidelizacion}
-            </div>
-        </div>
-
-        <div class="card" style="border-left: 5px solid var(--accent) !important;">
-            <h2 class="fw-600" style="font-size:16px;">📊 Productividad</h2>
-            <p style="font-size:14px; margin-top:4px;">Esta semana llevas <strong>${puntosSemana}</strong> puntos de ${metaTotal}. Te hacen falta <strong>${puntosFaltantes}</strong> puntos para llegar a la meta.</p>
-            ${cuotaDiariaTexto}
-        </div>
-
-        <div class="card" style="border-left: 5px solid var(--danger) !important;">
-            <h2 class="fw-600" style="font-size:16px;">💼 Control de Cartera</h2>
-            ${textoCartera}
-        </div>
-    `;
+    await DashboardManager.init();
 }
+
+// Controlador de Lógica de Negocio y Presentación
+const DashboardManager = {
+    async init() {
+        try {
+            const [user, historial, cartera] = await Promise.all([
+                this._getUserData(),
+                DB.obtenerTodos('actividad_diaria'), // Ajustado a la nueva estructura unificada
+                DB.obtenerTodos('cartera')
+            ]);
+            
+            this._hydrateUI(user, historial, cartera);
+        } catch (error) {
+            console.error("[Dashboard] Error al cargar datos:", error);
+        }
+    },
+
+    async _getUserData() {
+        const supabase = getSupabase();
+        let nombreUsuario = 'Asesor';
+        if (supabase) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.user_metadata?.full_name) {
+                nombreUsuario = user.user_metadata.full_name.split(' ')[0];
+            }
+        }
+        return nombreUsuario;
+    },
+
+    _hydrateUI(nombre, historial, cartera) {
+        // 1. Saludo
+        const hora = new Date().getHours();
+        const saludo = hora >= 5 && hora < 12 ? 'Buenos días' : hora >= 12 && hora < 19 ? 'Buenas tardes' : 'Buenas noches';
+        document.getElementById('dash-saludo').innerHTML = `${saludo}, ${nombre}. 👋`;
+
+        // 2. Productividad
+        const kpiProductividad = this._calcProductividad(historial);
+        document.getElementById('dash-productividad').innerHTML = `
+            <p style="font-size:14px; margin-top:4px;">Esta semana llevas <strong>${kpiProductividad.puntos}</strong> puntos de ${kpiProductividad.meta}. Faltan <strong>${kpiProductividad.faltantes}</strong> puntos.</p>
+            ${kpiProductividad.badge}
+        `;
+
+        // 3. Fidelización
+        const alertasFidelizacion = this._calcFidelizacion(cartera);
+        document.getElementById('dash-fidelizacion').innerHTML = alertasFidelizacion.length > 0 
+            ? alertasFidelizacion.join('') 
+            : '<p style="font-size:13px; color:var(--text-secondary);">Sin eventos próximos en los siguientes 30 días.</p>';
+
+        // 4. Cobranza
+        const alertasCobranza = this._calcCobranza(cartera);
+        document.getElementById('dash-cartera').innerHTML = alertasCobranza;
+    },
+
+    _calcProductividad(historial) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const lunes = new Date(hoy);
+        lunes.setDate(hoy.getDate() - (hoy.getDay() === 0 ? 6 : hoy.getDay() - 1));
+        const viernes = new Date(lunes);
+        viernes.setDate(lunes.getDate() + 4);
+        viernes.setHours(23, 59, 59, 999);
+
+        let puntosSemana = 0;
+        historial.forEach(reg => {
+            const fechaReg = new Date(reg.id + 'T12:00:00'); // ID es la fecha en ISO por el Upsert
+            if (fechaReg >= lunes && fechaReg <= viernes) {
+                // Cálculo rápido basado en las métricas guardadas
+                puntosSemana += (reg.referidos * 1) + (reg.llamadas * 0.5) + (reg.citas_agendadas * 2) + 
+                                (reg.citas_conectadas * 5) + (reg.citas_cierre * 5) + 
+                                (reg.solicitudes * 10) + (reg.pagadas * 15);
+            }
+        });
+
+        const metaTotal = 125;
+        const faltantes = Math.max(0, metaTotal - puntosSemana);
+        const numDia = hoy.getDay();
+        const diasRestantes = (numDia >= 1 && numDia <= 5) ? 6 - numDia : 0;
+
+        let badge = '';
+        if (faltantes <= 0) badge = `<div class="badge badge-green mt-8">🎉 ¡Meta semanal cumplida!</div>`;
+        else if (diasRestantes > 0) badge = `<div class="badge badge-red mt-8">Requiere ${Math.ceil(faltantes / diasRestantes)} puntos diarios</div>`;
+        else badge = `<div class="badge badge-orange mt-8">Fin de semana: Faltaron ${faltantes} puntos</div>`;
+
+        return { puntos: puntosSemana, meta: metaTotal, faltantes, badge };
+    },
+
+    _calcFidelizacion(cartera) {
+        const hoy = new Date();
+        const alertas = [];
+        const diaEnMs = 86400000;
+
+        cartera.forEach(p => {
+            if (p.nacimiento) {
+                const fNac = new Date(p.nacimiento + 'T12:00:00');
+                let proxCumple = new Date(hoy.getFullYear(), fNac.getMonth(), fNac.getDate());
+                if (proxCumple < hoy) proxCumple.setFullYear(hoy.getFullYear() + 1);
+                
+                const diasCumple = Math.ceil((proxCumple - hoy) / diaEnMs);
+                if (diasCumple <= 30) {
+                    alertas.push(`<div style="display:flex; justify-content:space-between; font-size:13px; border-bottom:1px solid var(--separator); padding-bottom:6px; margin-bottom:6px;"><span>🎂 <strong>${p.cliente}</strong></span> <span>Faltan ${diasCumple} días</span></div>`);
+                }
+
+                let proxAct = new Date(proxCumple);
+                proxAct.setMonth(proxAct.getMonth() - 6);
+                if (proxAct < hoy) proxAct.setFullYear(proxAct.getFullYear() + 1);
+                
+                const diasAct = Math.ceil((proxAct - hoy) / diaEnMs);
+                if (diasAct <= 30) {
+                    alertas.push(`<div style="display:flex; justify-content:space-between; font-size:13px; border-bottom:1px solid var(--separator); padding-bottom:6px; margin-bottom:6px;"><span>📈 <strong>${p.cliente}</strong> (Edad Actuarial)</span> <span style="color:var(--warning);">Cambia en ${diasAct} días</span></div>`);
+                }
+            }
+
+            if (p.emision) {
+                const fEmi = new Date(p.emision + 'T12:00:00');
+                let proxAniv = new Date(hoy.getFullYear(), fEmi.getMonth(), fEmi.getDate());
+                if (proxAniv < hoy) proxAniv.setFullYear(hoy.getFullYear() + 1);
+                
+                const diasAniv = Math.ceil((proxAniv - hoy) / diaEnMs);
+                if (diasAniv <= 30) {
+                    alertas.push(`<div style="display:flex; justify-content:space-between; font-size:13px; border-bottom:1px solid var(--separator); padding-bottom:6px; margin-bottom:6px;"><span>🛡️ <strong>${p.poliza}</strong> (Aniversario)</span> <span>Faltan ${diasAniv} días</span></div>`);
+                }
+            }
+        });
+        return alertas;
+    },
+
+    _calcCobranza(cartera) {
+        const hoy = new Date();
+        const pendientes = cartera.filter(p => {
+            if (!p.fechaPago) return false;
+            const f = new Date(p.fechaPago + 'T12:00:00');
+            return f.getMonth() === hoy.getMonth() && f.getFullYear() === hoy.getFullYear();
+        });
+
+        if (pendientes.length === 0) return `<p style="color: var(--success); font-size: 14px; margin-top: 5px;">Todo en orden. Sin pólizas pendientes de cobro este mes.</p>`;
+        
+        const nombres = pendientes.map(p => `<strong>${p.cliente}</strong>`).join(', ');
+        return `<p style="color: var(--danger); font-size: 14px; margin-top: 5px;">Pólizas de ${nombres} pendientes de cobro.</p>`;
+    }
+};

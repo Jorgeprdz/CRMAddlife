@@ -1,150 +1,178 @@
-// referidos.js - Completo con Semáforo de Estatus, Buscador y Ruteador de Ventas
+// /modules/referidos.js - Directorio y Ruteador (Arquitectura Modular)
 import { DB } from './db.js';
 import { showToast, showConfirm } from './utils.js';
 
-let idEdicionActual = null;
+const State = {
+    idEdicion: null,
+    datos: [],
+    reset() {
+        this.idEdicion = null;
+        document.getElementById('ref-titulo').innerText = '👥 Registro de Referidos';
+        ['ref-nombre', 'ref-telefono', 'ref-origen', 'ref-notas'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('ref-estado').value = 'Nuevo';
+        document.getElementById('btn-cancelar-ref').style.display = 'none';
+    }
+};
 
 const SemaforoColores = {
     'Nuevo': { color: '#007AFF', label: 'Contacto Nuevo (Azul)' },
     'Contactado': { color: '#5856D6', label: 'Contactado (Morado)' },
     'Agendado': { color: '#34C759', label: 'Cita Agendada (Verde)' },
     'En Seguimiento': { color: '#FF9500', label: 'En Seguimiento (Naranja)' },
-    'Cerró': { color: '#32D74B', label: 'Póliza Cerrada (Verde Brillant)' },
+    'Cerró': { color: '#32D74B', label: 'Póliza Cerrada (Verde)' },
     'Descartado': { color: '#FF3B30', label: 'Descartado (Rojo)' }
 };
 
 export function renderReferidos() {
     return `
-        <div class="card">
-            <h2 id="ref-titulo">👥 Registro e Historial de Referidos</h2>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <input id="ref-nombre" placeholder="Nombre completo del referido">
-                <input id="ref-telefono" type="tel" placeholder="Teléfono celular">
-                <input id="ref-origen" placeholder="¿Quién es el Centro de Influencia (COI)?">
-                
-                <label style="font-size:11px; font-weight:600; color:var(--text-secondary);">Estatus del Semáforo</label>
-                <select id="ref-estado">
-                    ${Object.keys(SemaforoColores).map(k => `<option value="${k}">${SemaforoColores[k].label}</option>`).join('')}
-                </select>
+        <div id="referidos-root">
+            <div class="card">
+                <h2 id="ref-titulo">👥 Registro e Historial de Referidos</h2>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input id="ref-nombre" placeholder="Nombre completo del referido">
+                    <input id="ref-telefono" type="tel" placeholder="Teléfono celular">
+                    <input id="ref-origen" placeholder="¿Quién es el Centro de Influencia (COI)?">
+                    
+                    <label style="font-size:11px; font-weight:600; color:var(--text-secondary);">Estatus del Semáforo</label>
+                    <select id="ref-estado">
+                        ${Object.keys(SemaforoColores).map(k => `<option value="${k}">${SemaforoColores[k].label}</option>`).join('')}
+                    </select>
 
-                <textarea id="ref-notas" placeholder="Contexto familiar, pasatiempos, hijos..."></textarea>
-                <button id="btn-guardar-ref" class="btn-primary">💾 Guardar Referido</button>
-                <button id="btn-cancelar-ref" class="btn-secondary" style="display:none;">❌ Cancelar Edición</button>
+                    <textarea id="ref-notas" placeholder="Contexto familiar, pasatiempos, hijos..."></textarea>
+                    
+                    <button id="btn-guardar-ref" class="btn-primary">💾 Guardar Referido</button>
+                    <button id="btn-cancelar-ref" class="btn-secondary" style="display:none;">❌ Cancelar Edición</button>
+                </div>
             </div>
-        </div>
 
-        <div class="card">
-            <h2>Directorio Inteligente</h2>
-            <input id="ref-buscador" placeholder="🔍 Buscar referido por nombre..." style="margin-bottom:12px; width:100%;">
-            <div id="lista-referidos-container" style="display:flex; flex-direction:column; gap:10px;">
-                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.15; height: 60px;"></div>
-                <div class="skeleton-row skeleton-shimmer" style="opacity: 0.15; height: 60px;"></div>
+            <div class="card">
+                <h2>Directorio Inteligente</h2>
+                <input id="ref-buscador" placeholder="🔍 Buscar por nombre..." style="margin-bottom:12px; width:100%;">
+                <div id="lista-referidos-container" style="display:flex; flex-direction:column; gap:10px;"></div>
             </div>
         </div>
     `;
 }
 
 export async function bindReferidosEvents() {
-    document.getElementById('btn-guardar-ref')?.addEventListener('click', guardarReferido);
-    document.getElementById('btn-cancelar-ref')?.addEventListener('click', limpiarFormulario);
-    document.getElementById('ref-buscador')?.addEventListener('input', filtrarReferidos);
-    await cargarListaReferidos();
-}
+    const root = document.getElementById('referidos-root');
+    if (!root) return;
 
-async function guardarReferido() {
-    const datos = {
-        nombre: document.getElementById('ref-nombre').value.trim(),
-        telefono: document.getElementById('ref-telefono').value.trim(),
-        origen: document.getElementById('ref-origen').value.trim(),
-        estado: document.getElementById('ref-estado').value,
-        notas: document.getElementById('ref-notas').value.trim()
-    };
-    if (!datos.nombre) return showToast('El nombre es requerido.', 'warning');
-
-    if (idEdicionActual) {
-        await DB.actualizar('referidos', idEdicionActual, datos);
-    } else {
-        datos.id = 'ref_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-        await DB.guardar('referidos', datos);
-    }
-    limpiarFormulario();
-    await cargarListaReferidos();
-}
-
-async function cargarListaReferidos(filtro = '') {
-    const container = document.getElementById('lista-referidos-container');
-    if (!container) return;
-
-    const referidos = await DB.obtenerTodos('referidos');
-    const filtrados = referidos.filter(r => r.nombre.toLowerCase().includes(filtro.toLowerCase()));
-
-    if (filtrados.length === 0) {
-        container.innerHTML = `<div style="text-align:center; color:var(--text-secondary);">Sin coincidencias en el directorio.</div>`;
-        return;
-    }
-
-    container.innerHTML = filtrados.map(r => {
-        const configSemaforo = SemaforoColores[r.estado] || { color: '#ccc' };
-        return `
-            <div style="background:var(--surface-2); padding:14px; border-radius:14px; border:1px solid var(--separator); border-left: 6px solid ${configSemaforo.color};">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <strong>${r.nombre}</strong>
-                    <span style="font-size:10px; font-weight:bold; color:white; background:${configSemaforo.color}; padding:2px 8px; border-radius:10px;">${r.estado}</span>
-                </div>
-                <p style="font-size:12px; color:var(--text-secondary); margin:4px 0;">
-                    👤 COI: ${r.origen || 'No indicado'} | 📞 ${r.telefono || 'Sin celular'}
-                </p>
-                <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
-                    <button onclick="enviarReferidoAEmbudo('${r.id}')" class="btn-primary" style="background:#007AFF!important; border-color:#007AFF!important; padding:4px 8px!important; font-size:11px;">🚀 Mandar a Prospectos</button>
-                    <button onclick="cargarRefEdicion('${r.id}')" class="btn-secondary" style="padding:4px 8px!important; font-size:11px;">✏️ Editar</button>
-                    <button onclick="eliminarReferido('${r.id}')" class="btn-secondary" style="padding:4px 8px!important; font-size:11px; color:var(--danger)!important;">🗑️ Borrar</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function filtrarReferidos(e) {
-    cargarListaReferidos(e.target.value);
-}
-
-window.enviarReferidoAEmbudo = async (id) => {
-    const referidos = await DB.obtenerTodos('referidos');
-    const r = referidos.find(x => x.id === id);
-    if (!r) return;
+    // Event Delegation
+    root.addEventListener('click', handleReferidosClicks);
+    document.getElementById('btn-guardar-ref')?.addEventListener('click', Controller.guardarReferido);
+    document.getElementById('btn-cancelar-ref')?.addEventListener('click', () => State.reset());
     
-    // Dejar empaquetado el objeto en memoria y forzar ruteador nativo
-    localStorage.setItem('auto_prospecto', JSON.stringify(r));
-    window.navigateTo('prospeccion');
-};
+    // Búsqueda en memoria local (Fast DOM filtering sin golpear BD)
+    document.getElementById('ref-buscador')?.addEventListener('input', (e) => Controller.filtrarUI(e.target.value));
 
-window.cargarRefEdicion = async (id) => {
-    const referidos = await DB.obtenerTodos('referidos');
-    const r = referidos.find(x => x.id === id);
-    if (!r) return;
+    await Controller.cargarDirectorio();
+}
 
-    idEdicionActual = id;
-    document.getElementById('ref-titulo').innerText = '✏️ Editar Referido';
-    document.getElementById('ref-nombre').value = r.nombre || '';
-    document.getElementById('ref-telefono').value = r.telefono || '';
-    document.getElementById('ref-origen').value = r.origen || '';
-    document.getElementById('ref-estado').value = r.estado || 'Nuevo';
-    document.getElementById('ref-notas').value = r.notas || '';
-    document.getElementById('btn-cancelar-ref').style.display = 'block';
-};
+async function handleReferidosClicks(e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
 
-window.eliminarReferido = async (id) => {
-    const seguro = await showConfirm('¿Estás seguro de que deseas eliminar este referido de la base de datos?', 'Eliminar Referido', 'Eliminar', true);
-    if (seguro) {
-        await DB.eliminar('referidos', id);
-        await cargarListaReferidos();
+    const action = btn.getAttribute('data-action');
+    const id = btn.getAttribute('data-id');
+
+    switch(action) {
+        case 'enrutar-embudo': Controller.enrutarAProspeccion(id); break;
+        case 'editar-referido': Controller.cargarEdicion(id); break;
+        case 'eliminar-referido': Controller.eliminarReferido(id); break;
+    }
+}
+
+const Controller = {
+    async guardarReferido() {
+        const payload = {
+            nombre: document.getElementById('ref-nombre').value.trim(),
+            telefono: document.getElementById('ref-telefono').value.trim(),
+            origen: document.getElementById('ref-origen').value.trim(),
+            estado: document.getElementById('ref-estado').value,
+            notas: document.getElementById('ref-notas').value.trim()
+        };
+
+        if (!payload.nombre) return showToast('El nombre es obligatorio.', 'danger');
+
+        if (State.idEdicion) {
+            await DB.actualizar('referidos', State.idEdicion, payload);
+        } else {
+            payload.id = 'ref_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+            await DB.guardar('referidos', payload);
+        }
+        
+        State.reset();
+        await this.cargarDirectorio();
+        showToast('Referido procesado con éxito.', 'success');
+    },
+
+    async cargarDirectorio() {
+        State.datos = await DB.obtenerTodos('referidos');
+        this._renderHTML(State.datos);
+    },
+
+    filtrarUI(texto) {
+        const query = texto.toLowerCase();
+        const filtrados = State.datos.filter(r => r.nombre.toLowerCase().includes(query));
+        this._renderHTML(filtrados);
+    },
+
+    _renderHTML(lista) {
+        const container = document.getElementById('lista-referidos-container');
+        if (lista.length === 0) {
+            container.innerHTML = `<div style="text-align:center; color:var(--text-secondary);">Directorio vacío o sin coincidencias.</div>`;
+            return;
+        }
+
+        container.innerHTML = lista.map(r => {
+            const ui = SemaforoColores[r.estado] || { color: '#ccc' };
+            return `
+                <div style="background:var(--surface-2); padding:14px; border-radius:14px; border:1px solid var(--separator); border-left: 6px solid ${ui.color};">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong>${r.nombre}</strong>
+                        <span style="font-size:10px; font-weight:bold; color:white; background:${ui.color}; padding:2px 8px; border-radius:10px;">${r.estado}</span>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-secondary); margin:4px 0;">
+                        👤 COI: ${r.origen || 'No indicado'} | 📞 ${r.telefono || 'N/A'}
+                    </p>
+                    <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
+                        <button data-action="enrutar-embudo" data-id="${r.id}" class="btn-primary" style="background:#007AFF!important; border-color:#007AFF!important; padding:4px 8px!important; font-size:11px;">🚀 A Prospectos</button>
+                        <button data-action="editar-referido" data-id="${r.id}" class="btn-secondary" style="padding:4px 8px!important; font-size:11px;">✏️ Editar</button>
+                        <button data-action="eliminar-referido" data-id="${r.id}" class="btn-secondary" style="padding:4px 8px!important; font-size:11px; color:var(--danger)!important;">🗑️ Borrar</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    enrutarAProspeccion(id) {
+        const ref = State.datos.find(x => x.id === id);
+        if (!ref) return;
+        localStorage.setItem('auto_prospecto', JSON.stringify(ref));
+        window.navigateTo('prospeccion');
+    },
+
+    cargarEdicion(id) {
+        const r = State.datos.find(x => x.id === id);
+        if (!r) return;
+        
+        State.idEdicion = id;
+        document.getElementById('ref-titulo').innerText = '✏️ Editar Referido';
+        document.getElementById('ref-nombre').value = r.nombre || '';
+        document.getElementById('ref-telefono').value = r.telefono || '';
+        document.getElementById('ref-origen').value = r.origen || '';
+        document.getElementById('ref-estado').value = r.estado || 'Nuevo';
+        document.getElementById('ref-notas').value = r.notas || '';
+        document.getElementById('btn-cancelar-ref').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    async eliminarReferido(id) {
+        const seguro = await showConfirm('¿Eliminar este referido de la base de datos?', 'Borrar', 'Eliminar', true);
+        if (seguro) {
+            await DB.eliminar('referidos', id);
+            await this.cargarDirectorio();
+        }
     }
 };
-
-function limpiarFormulario() {
-    idEdicionActual = null;
-    document.getElementById('ref-titulo').innerText = '👥 Registro e Historial de Referidos';
-    ['ref-nombre', 'ref-telefono', 'ref-origen', 'ref-notas'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('ref-estado').value = 'Nuevo';
-    document.getElementById('btn-cancelar-ref').style.display = 'none';
-}

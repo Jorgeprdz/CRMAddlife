@@ -1,135 +1,117 @@
-// utils.js - Herramientas Globales del Sistema
-
-export function agendarCita(nombre, detalle) {
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() + 1); // Cita programada para el día siguiente por defecto
-    const dateStr = fecha.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    window.open(`https://www.google.com/calendar/render?action=TEMPLATE&text=Cita+con:+${encodeURIComponent(nombre)}&details=${encodeURIComponent(detalle)}&dates=${dateStr}/${dateStr}`, '_blank');
-}
-
-// Obtener o crear el contenedor global de Toasts
-function getToastContainer() {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        document.body.appendChild(container);
-    }
-    return container;
-}
+// /modules/utils.js - Motor de Notificaciones y Diálogos UI Premium
 
 /**
- * Muestra una notificación flotante temporal One UI (Toast)
- * @param {string} mensaje - El texto a mostrar
- * @param {string} tipo - 'success', 'danger', 'warning', 'info'
+ * Muestra una notificación temporal no intrusiva (Toast).
+ * @param {string} message - Texto a mostrar.
+ * @param {string} type - 'success', 'danger', 'warning', 'info'.
  */
-export function showToast(mensaje, tipo = 'info') {
-    const container = getToastContainer();
+export function showToast(message, type = 'info') {
+    const colors = {
+        success: '#34C759',
+        danger: '#FF3B30',
+        warning: '#FF9500',
+        info: '#007AFF'
+    };
+
     const toast = document.createElement('div');
-    toast.className = `toast toast-${tipo}`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-20px);
+        background: var(--surface-2, #ffffff);
+        color: var(--text-primary, #000000);
+        padding: 12px 20px;
+        border-radius: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        font-size: 13px;
+        font-weight: 500;
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border-left: 4px solid ${colors[type] || colors.info};
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 90vw;
+        text-align: center;
+    `;
 
-    let icon = 'ℹ️';
-    if (tipo === 'success') icon = '🟢';
-    else if (tipo === 'danger') icon = '🚨';
-    else if (tipo === 'warning') icon = '⚠️';
+    toast.innerHTML = `<span>${message}</span>`;
+    document.body.appendChild(toast);
 
-    toast.innerHTML = `<span>${icon}</span> <span>${mensaje}</span>`;
-    container.appendChild(toast);
-
-    // Remover automáticamente después de que termine la animación
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
-
-/**
- * Muestra un modal elegante One UI de confirmación interactiva
- * @param {string} mensaje - Pregunta a realizar
- * @param {string} titulo - Título de la ventana
- * @param {string} botonAceptarTxt - Texto del botón de confirmar
- * @param {boolean} esPeligroso - True para teñir el botón de confirmar de rojo (peligro)
- * @returns {Promise<boolean>}
- */
-export function showConfirm(mensaje, titulo = 'Confirmación', botonAceptarTxt = 'Confirmar', esPeligroso = false) {
-    return new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.className = 'dialog-overlay';
-
-        const btnClass = esPeligroso ? 'dialog-btn-danger' : 'dialog-btn-confirm';
-
-        overlay.innerHTML = `
-            <div class="dialog-box">
-                <div class="dialog-title">${titulo}</div>
-                <div class="dialog-message">${mensaje}</div>
-                <div class="dialog-buttons">
-                    <button class="dialog-btn dialog-btn-cancel" id="dlg-cancel">Cancelar</button>
-                    <button class="dialog-btn ${btnClass}" id="dlg-ok">${botonAceptarTxt}</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        const btnCancel = overlay.querySelector('#dlg-cancel');
-        const btnOk = overlay.querySelector('#dlg-ok');
-
-        const close = (value) => {
-            overlay.style.animation = 'dialogFadeOut 0.2s forwards';
-            const box = overlay.querySelector('.dialog-box');
-            if (box) box.style.animation = 'dialogScaleOut 0.2s forwards';
-            setTimeout(() => {
-                overlay.remove();
-                resolve(value);
-            }, 180);
-        };
-
-        btnCancel.addEventListener('click', () => close(false));
-        btnOk.addEventListener('click', () => close(true));
-
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) close(false);
-        });
+    // Animación de entrada
+    requestAnimationFrame(() => {
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+        toast.style.opacity = '1';
     });
+
+    // Auto-destrucción y limpieza de memoria
+    setTimeout(() => {
+        toast.style.transform = 'translateX(-50%) translateY(-20px)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
 }
 
 /**
- * Muestra un modal elegante One UI de alerta informativa
- * @param {string} mensaje - Mensaje a informar
- * @param {string} titulo - Título de la ventana
- * @returns {Promise<void>}
+ * Muestra un diálogo de confirmación asíncrono (Modal) sin bloquear el Event Loop.
+ * @param {string} text - Pregunta o advertencia.
+ * @param {string} title - Título del modal.
+ * @param {string} confirmText - Texto del botón de acción.
+ * @param {boolean} isDestructive - Si es true, el botón será rojo.
+ * @returns {Promise<boolean>} - Resuelve true si el usuario confirma, false si cancela.
  */
-export function showAlert(mensaje, titulo = 'Información') {
+export function showConfirm(text, title = 'Confirmar', confirmText = 'Aceptar', isDestructive = false) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
-        overlay.className = 'dialog-overlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            z-index: 10000; display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.2s ease;
+        `;
 
-        overlay.innerHTML = `
-            <div class="dialog-box">
-                <div class="dialog-title">${titulo}</div>
-                <div class="dialog-message">${mensaje}</div>
-                <div class="dialog-buttons">
-                    <button class="dialog-btn dialog-btn-confirm" id="dlg-ok" style="width:100% !important;">Aceptar</button>
-                </div>
+        const btnColor = isDestructive ? '#FF3B30' : '#007AFF';
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: var(--surface, #ffffff); width: 280px; border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); overflow: hidden;
+            transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center; border: 1px solid var(--separator, #e5e5ea);
+        `;
+
+        modal.innerHTML = `
+            <div style="padding: 20px 16px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">${title}</h3>
+                <p style="margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.4;">${text}</p>
+            </div>
+            <div style="display: flex; border-top: 1px solid var(--separator, #e5e5ea);">
+                <button id="btn-cancel" style="flex: 1; padding: 14px; background: transparent; border: none; border-right: 1px solid var(--separator, #e5e5ea); color: var(--text-primary); font-size: 15px; font-weight: 500; cursor: pointer;">Cancelar</button>
+                <button id="btn-confirm" style="flex: 1; padding: 14px; background: transparent; border: none; color: ${btnColor}; font-size: 15px; font-weight: 600; cursor: pointer;">${confirmText}</button>
             </div>
         `;
 
+        overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        const btnOk = overlay.querySelector('#dlg-ok');
+        // Animación de entrada
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+            modal.style.transform = 'scale(1)';
+        });
 
-        const close = () => {
-            overlay.style.animation = 'dialogFadeOut 0.2s forwards';
-            const box = overlay.querySelector('.dialog-box');
-            if (box) box.style.animation = 'dialogScaleOut 0.2s forwards';
+        const close = (result) => {
+            overlay.style.opacity = '0';
+            modal.style.transform = 'scale(0.95)';
             setTimeout(() => {
                 overlay.remove();
-                resolve();
-            }, 180);
+                resolve(result);
+            }, 200);
         };
 
-        btnOk.addEventListener('click', close);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) close();
-        });
+        modal.querySelector('#btn-cancel').addEventListener('click', () => close(false));
+        modal.querySelector('#btn-confirm').addEventListener('click', () => close(true));
     });
 }
