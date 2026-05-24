@@ -1,6 +1,4 @@
-// =========================================================================
-// SECCIÓN 1: IMPORTACIONES DE NÚCLEO
-// =========================================================================
+// app.js - Motor Central y Chatbot de Mentoría
 import { DB, processOfflineQueue } from './db.js';
 import { showToast } from './utils.js';
 import { renderDashboard, bindDashboardEvents } from './dashboard.js';
@@ -10,56 +8,37 @@ import { renderActividad, bindActividadEvents } from './actividad.js';
 import { renderCartera, bindCarteraEvents } from './cartera.js';
 import { renderComisiones, bindComisionesEvents } from './comisiones.js';
 
-// =========================================================================
-// SECCIÓN 2: PARÁMETROS SUPABASE
-// =========================================================================
 const supabaseUrl = 'https://rmlxigxysujsuwzgoimv.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtbHhpZ3h5c3Vqc3V3emdvaW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjk4NjksImV4cCI6MjA5NDkwNTg2OX0.5gzo9OWjsohsfdd5uKuDHAqkgoZ-zJyRy_zpirVm-ts';
 let supabase = null;
+let memoriaChat = []; // Historial de conversación
 
 export const getSupabase = () => supabase;
 
-// =========================================================================
-// SECCIÓN 3: MOTOR DE IA (SUPABASE PROXY)
-// =========================================================================
 export async function callGemini(prompt, outputId) {
     const outputEl = document.getElementById(outputId);
-    if (outputEl) outputEl.innerHTML = '<span style="opacity:0.5;">Escribiendo...</span>';
+    if (outputEl) outputEl.innerHTML = '<span style="opacity:0.5;">Analizando estrategia...</span>';
     
     try {
-        if (!supabase) throw new Error("El cliente de Supabase es nulo.");
-        
+        if (!supabase) throw new Error("Cliente Supabase no inicializado.");
         const { data, error } = await supabase.functions.invoke('gemini-proxy', { body: { prompt } });
-
-        if (error) throw new Error(error.message || JSON.stringify(error));
-        if (!data) throw new Error("Supabase respondió con datos vacíos.");
+        if (error) throw new Error(error.message);
         
-        let textoRespuesta = data.respuesta || data.text;
-
-        if (!textoRespuesta && data.candidates && data.candidates[0]) {
-            textoRespuesta = data.candidates[0].content.parts[0].text;
+        let texto = data.respuesta || data.text;
+        if (!texto && data.candidates && data.candidates[0]) {
+            texto = data.candidates[0].content.parts[0].text;
         }
+        if (!texto) throw new Error("Estructura de respuesta no válida.");
 
-        if (!textoRespuesta && data.error) {
-            const msgError = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
-            throw new Error("Rechazo de Google API: " + msgError);
-        }
-
-        if (!textoRespuesta) throw new Error("Formato desconocido: " + JSON.stringify(data));
-
-        const textoFormateado = textoRespuesta.replace(/\n/g, '<br>');
-        if (outputEl) outputEl.innerHTML = textoFormateado;
-        return textoFormateado;
-
+        const formatted = texto.replace(/\n/g, '<br>');
+        if (outputEl) outputEl.innerHTML = formatted;
+        return texto;
     } catch (err) {
-        console.error("Falla detectada:", err);
-        if (outputEl) outputEl.innerHTML = `<div style="color:var(--danger); font-size:12px;"><strong>⚠️ Error:</strong><br>${err.message || err}</div>`;
+        console.error(err);
+        if (outputEl) outputEl.innerHTML = `<span style="color:var(--danger);">Error de conexión: ${err.message}</span>`;
     }
 }
 
-// =========================================================================
-// SECCIÓN 4: AUTH Y THEME
-// =========================================================================
 function inicializarSupabase() {
     if (window.supabase) {
         supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
@@ -86,67 +65,30 @@ window.toggleTheme = () => {
     localStorage.setItem('theme', next);
 };
 
-// =========================================================================
-// SECCIÓN 5: ENRUTADOR
-// =========================================================================
 window.navigateTo = function(moduleName) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-target="${moduleName}"]`)?.classList.add('active');
-    
     const contentArea = document.getElementById('app-content');
     if (!contentArea) return;
 
-    try {
-        if (moduleName === 'dashboard') { contentArea.innerHTML = renderDashboard(); setTimeout(bindDashboardEvents, 50); }
-        else if (moduleName === 'prospeccion') { contentArea.innerHTML = renderProspeccion(); setTimeout(bindProspeccionEvents, 50); }
-        else if (moduleName === 'referidos') { contentArea.innerHTML = renderReferidos(); setTimeout(bindReferidosEvents, 50); }
-        else if (moduleName === 'actividad') { contentArea.innerHTML = renderActividad(); setTimeout(bindActividadEvents, 50); }
-        else if (moduleName === 'cartera') { contentArea.innerHTML = renderCartera(); setTimeout(bindCarteraEvents, 50); }
-        else if (moduleName === 'comisiones') { contentArea.innerHTML = renderComisiones(); setTimeout(bindComisionesEvents, 50); }
-    } catch (e) { console.error("Error al enrutar:", e); }
+    if (moduleName === 'dashboard') { contentArea.innerHTML = renderDashboard(); setTimeout(bindDashboardEvents, 50); }
+    else if (moduleName === 'prospeccion') { contentArea.innerHTML = renderProspeccion(); setTimeout(bindProspeccionEvents, 50); }
+    else if (moduleName === 'referidos') { contentArea.innerHTML = renderReferidos(); setTimeout(bindReferidosEvents, 50); }
+    else if (moduleName === 'actividad') { contentArea.innerHTML = renderActividad(); setTimeout(bindActividadEvents, 50); }
+    else if (moduleName === 'cartera') { contentArea.innerHTML = renderCartera(); setTimeout(bindCarteraEvents, 50); }
+    else if (moduleName === 'comisiones') { contentArea.innerHTML = renderComisiones(); setTimeout(bindComisionesEvents, 50); }
 };
 
-// =========================================================================
-// SECCIÓN 6: INICIALIZACIÓN
-// =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Sincronización automática de cambios acumulados offline
-    window.addEventListener('online', () => {
-        showToast('Conexión a internet detectada. Sincronizando datos...', 'info');
-        processOfflineQueue();
-    });
-
-    if (navigator.onLine) {
-        processOfflineQueue();
-    }
-
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    const toggle = document.getElementById('theme-toggle');
-    if (toggle) {
-        toggle.checked = (savedTheme === 'dark');
-        toggle.addEventListener('change', window.toggleTheme);
-    }
-
-    let inactivityTimer;
-    const resetInactivityTimer = () => {
-        clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(window.cerrarSesion, 10 * 60 * 1000);
-    };
-    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => document.addEventListener(evt, resetInactivityTimer, true));
-
-    document.body.addEventListener('click', (e) => {
-        const navBtn = e.target.closest('.nav-btn');
-        if (navBtn && !navBtn.classList.contains('nav-btn-logout')) window.navigateTo(navBtn.getAttribute('data-target'));
-        if (e.target.closest('#btn-google-login')) window.loginConGoogle();
-    });
-
+    
     let intentos = 0;
     while (!inicializarSupabase() && intentos < 20) { await new Promise(r => setTimeout(r, 100)); intentos++; }
 
     const contentArea = document.getElementById('app-content');
     if (!supabase) {
-        contentArea.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-secondary);">Error crítico: BD inaccesible.</div>`;
+        contentArea.innerHTML = `<div style="padding:40px; text-align:center;">Error de carga de base de datos.</div>`;
         return;
     }
 
@@ -160,22 +102,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         contentArea.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; padding:24px;">
                 <div class="card" style="text-align:center; width:100%; max-width:360px;">
-                    <h1 style="font-size:24px; margin-bottom:8px;">CRM Addlife</h1>
-                    <button class="btn-primary" id="btn-google-login" style="display:flex; align-items:center; justify-content:center; gap:10px; width:100%;">
-                        Continuar con Google
-                    </button>
+                    <h1 style="font-size:24px; margin-bottom:12px;">CRM Addlife Core</h1>
+                    <button class="btn-primary" id="btn-google-login" style="width:100%;">Ingresar con Google</button>
                 </div>
             </div>`;
     } else {
         if (navBar) navBar.style.display = 'flex';
         if (chatBubble) chatBubble.style.display = 'flex';
         window.navigateTo('dashboard');
-        resetInactivityTimer();
+        processOfflineQueue();
     }
 
-    // =========================================================================
-    // SECCIÓN 7: CHATBOT (CON INYECCIÓN DE CONTEXTO)
-    // =========================================================================
     const bubble = document.getElementById('ai-chat-bubble');
     const windowChat = document.getElementById('ai-chat-window');
     const closeBtn = document.getElementById('close-chat');
@@ -183,56 +120,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chatSend = document.getElementById('ai-chat-send');
     const msgContainer = document.getElementById('ai-chat-messages');
     
-    const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-    notificationSound.volume = 0.3;
-
-    const scrollChatToBottom = () => msgContainer.scrollTop = msgContainer.scrollHeight;
+    const scrollBottom = () => msgContainer.scrollTop = msgContainer.scrollHeight;
 
     bubble.addEventListener('click', () => {
         windowChat.style.display = windowChat.style.display === 'flex' ? 'none' : 'flex';
-        if (windowChat.style.display === 'flex') { chatInput.focus(); scrollChatToBottom(); }
+        if (windowChat.style.display === 'flex') { chatInput.focus(); scrollBottom(); }
     });
-
     closeBtn.addEventListener('click', () => windowChat.style.display = 'none');
 
-    async function procesarMensajeChat() {
-        const userMsg = chatInput.value.trim();
-        if (!userMsg) return;
+    async function ejecutarTransaccionMensaje() {
+        const query = chatInput.value.trim();
+        if (!query) return;
         chatInput.value = '';
 
-        msgContainer.innerHTML += `<div class="msg-row user-row"><div class="chat-bubble user-bubble">${userMsg}</div></div>`;
-        scrollChatToBottom();
+        msgContainer.innerHTML += `<div class="msg-row user-row"><div class="chat-bubble user-bubble">${query}</div></div>`;
+        scrollBottom();
 
-        const uniqueResId = 'ia-res-' + Date.now();
-        msgContainer.innerHTML += `<div class="msg-row ia-row"><div class="chat-bubble ia-bubble" id="${uniqueResId}"></div></div>`;
-        scrollChatToBottom();
+        const uniqueId = 'chat-ia-' + Date.now();
+        msgContainer.innerHTML += `<div class="msg-row ia-row"><div class="chat-bubble ia-bubble" id="${uniqueId}"></div></div>`;
+        scrollBottom();
 
         const cartera = await DB.obtenerTodos('cartera');
         const hoy = new Date();
-        let prodMesActual = 0, prodMesAnterior = 0, vidasMes = 0;
+        let volumenMesActual = 0, conteoPolizasMes = 0;
 
         cartera.forEach(p => {
             if (!p.emision) return;
-            const fp = p.fechaPago ? new Date(p.fechaPago + 'T12:00:00') : new Date(p.emision + 'T12:00:00');
-            const diffMeses = (hoy.getFullYear() - fp.getFullYear()) * 12 + (hoy.getMonth() - fp.getMonth());
-            const primaVal = Number(String(p.prima).replace(/[^0-9.-]+/g,"")) || 0;
-            
-            if (diffMeses === 0) { prodMesActual += primaVal; vidasMes++; }
-            else if (diffMeses === 1) { prodMesAnterior += primaVal; }
+            const fe = new Date(p.emision + 'T12:00:00');
+            if (fe.getMonth() === hoy.getMonth() && fe.getFullYear() === hoy.getFullYear()) {
+                volumenMesActual += Number(String(p.prima).replace(/[^0-9.-]+/g,"")) || 0;
+                conteoPolizasMes++;
+            }
         });
 
-        const promptEstructural = `
-            Actúas como mentor comercial de Seguros Monterrey. Eres directo.
-            Métrica del asesor (Objetivo: Zeekr X Dic 2026):
-            - Prima Pagada Mes Actual: $${prodMesActual.toLocaleString()} (${vidasMes} pólizas).
-            - Prima Pagada Mes Anterior: $${prodMesAnterior.toLocaleString()}.
-            Responde de manera ejecutiva: "${userMsg}"`;
+        memoriaChat.push(`Asesor: ${query}`);
+        if (memoriaChat.length > 8) memoriaChat.shift();
 
-        await callGemini(promptEstructural, uniqueResId);
-        notificationSound.play().catch(() => {});
-        scrollChatToBottom();
+        const promptEstructural = `
+            Actúas como el consultor y mentor comercial de seguros más brillante del mundo. Eres directo, estratégico y con gran psicología de ventas.
+            
+            Contexto del negocio en tiempo real del asesor:
+            - Prima neta acumulada cobrada este mes: $${volumenMesActual.toLocaleString('es-MX')} MXN.
+            - Total de pólizas ingresadas y vigentes este mes: ${conteoPolizasMes} casos.
+
+            Historial de esta conversación:
+            ${memoriaChat.join('\n')}
+
+            Reglas:
+            1. Responde directamente la duda.
+            2. Si es una objeción, usa esta estructura: Guion matador (2 líneas) <br> Psicología del prospecto <br> Tip de modulación de voz.
+            3. No uses motivación vacía, teoría sin aplicación ni saludos. Ve directo a la táctica.`;
+
+        const textoRespuestaIA = await callGemini(promptEstructural, uniqueId);
+        if (textoRespuestaIA) memoriaChat.push(`Mentor: ${textoRespuestaIA}`);
+        scrollBottom();
     }
 
-    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') procesarMensajeChat(); });
-    if (chatSend) chatSend.addEventListener('click', procesarMensajeChat);
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') ejecutarTransaccionMensaje(); });
+    if (chatSend) chatSend.addEventListener('click', ejecutarTransaccionMensaje);
 });
