@@ -1,8 +1,7 @@
-// /modules/actividad.js - Embudo Actuarial y Sincronización (Nube / Offline)
 import { DB } from './db.js';
-import { showToast, showConfirm } from './utils.js';
+import { callGemini } from './app.js';
+import { showToast } from './utils.js';
 
-// 1. STATE MANAGER & CONFIGURACIÓN ACTUARIAL
 const BaremoOficial = {
     referidos: 3,
     llamadas: 1,
@@ -10,130 +9,94 @@ const BaremoOficial = {
     citas_conectadas: 2,
     citas_cierre: 3,
     solicitudes: 5,
-    pagadas: 10,
-    referidos_coi: 5 // Mantenido para retrocompatibilidad
+    pagadas: 10
 };
 
-let actividadEstadoLocal = { referidos: 0, llamadas: 0, citas_agendadas: 0, citas_conectadas: 0, citas_cierre: 0, solicitudes: 0, pagadas: 0, referidos_coi: 0 };
+let estadoLocal = { referidos:0, llamadas:0, citas_agendadas:0, citas_conectadas:0, citas_cierre:0, solicitudes:0, pagadas:0 };
 let esRegistroExistente = false;
 
-// 2. RENDER UI
 export function renderActividad() {
     return `
-        <div class="card" style="border-left: 4px solid var(--accent);">
-            <h2>📈 Actividad y Conversión de Venta</h2>
-            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">Los datos se consolidan y sincronizan sin duplicarse en la nube (Motor Upsert).</p>
-            
-            <div style="background:var(--accent); color:white; padding:15px; border-radius:16px; text-align:center; margin-bottom:15px; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);">
-                <span style="font-size:11px; text-transform:uppercase; opacity:0.8; font-weight:600; letter-spacing: 0.5px;">Puntos Acumulados Hoy</span><br>
-                <strong id="act-puntos-hoy" style="font-size:38px; line-height:1.2;">0</strong>
+        <div id="actividad-root" style="padding-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 style="font-size:22px; font-weight:700; margin:0;">Dashboard Diario</h2>
+                <button id="btn-save-actividad" class="btn-primary" style="border-radius:20px; font-size:12px; padding:6px 16px!important;">Guardar</button>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                ${[
-                    { id: 'referidos', label: 'Referidos Obtenidos' },
-                    { id: 'llamadas', label: 'Llamadas Hechas' },
-                    { id: 'citas_agendadas', label: 'Citas Obtenidas' },
-                    { id: 'citas_conectadas', label: 'Citas Iniciales' },
-                    { id: 'citas_cierre', label: 'Citas de Cierre' },
-                    { id: 'solicitudes', label: 'Solicitudes Firmadas' }
-                ].map(x => `
-                <div class="act-box" style="background:var(--surface-2); padding:10px; border-radius:12px; text-align:center; border:1px solid var(--separator);">
-                    <span style="font-size:11px; color:var(--text-secondary); display:block; min-height:26px; font-weight:500;">${x.label}</span>
-                    <strong id="act-${x.id}" style="font-size:20px; display:block; margin:5px 0; color:var(--text-primary);">0</strong>
-                    <div style="display:flex; justify-content:center; gap:5px;">
-                        <button onclick="modificarContador('${x.id}', -1)" class="btn-secondary" style="padding:2px 12px!important; font-size:16px;">-</button>
-                        <button onclick="modificarContador('${x.id}', 1)" class="btn-primary" style="padding:2px 12px!important; font-size:16px;">+</button>
-                    </div>
-                </div>`).join('')}
-                
-                <div class="act-box" style="background:var(--surface-2); padding:10px; border-radius:12px; text-align:center; border:1px solid var(--separator); grid-column: span 2;">
-                    <span style="font-size:11px; color:var(--text-secondary); display:block; font-weight:500;">Pólizas Pagadas</span>
-                    <strong id="act-pagadas" style="font-size:24px; display:block; margin:5px 0; color:var(--success);">0</strong>
-                    <div style="display:flex; justify-content:center; gap:5px;">
-                        <button onclick="modificarContador('pagadas', -1)" class="btn-secondary" style="padding:2px 16px!important; font-size:16px;">-</button>
-                        <button onclick="modificarContador('pagadas', 1)" class="btn-primary" style="background:var(--success)!important; border-color:var(--success)!important; padding:2px 16px!important; font-size:16px;">+</button>
-                    </div>
+            <div class="ios-widget" style="background:linear-gradient(135deg, #007AFF 0%, #0056b3 100%); color:white; padding:24px; text-align:center; box-shadow:0 10px 30px rgba(0,122,255,0.3); margin-bottom:16px;">
+                <span style="font-size:12px; text-transform:uppercase; font-weight:600; opacity:0.9; letter-spacing:1px;">Productividad Hoy</span>
+                <div id="act-pts-total" style="font-size:56px; font-weight:800; letter-spacing:-2px; line-height:1.1; margin:8px 0;">0</div>
+                <span style="font-size:13px; opacity:0.8;">Puntos Baremo Oficial</span>
+            </div>
+
+            <div class="ios-widget" style="margin-bottom:16px; border-left:4px solid var(--warning); padding:16px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <span style="font-size:16px;">🤖</span>
+                    <strong style="font-size:13px;">Coach de Actividad AI</strong>
                 </div>
+                <div id="ai-activity-tip" style="font-size:13px; color:var(--text-secondary); line-height:1.4;">Analizando tu ritmo de hoy...</div>
             </div>
 
-            <button onclick="guardarActividadNube()" class="btn-primary" style="width:100%; margin-bottom:10px; font-weight:600;">💾 Guardar Actividad en la Nube</button>
-            <button onclick="resetearActividadDiaria()" class="btn-secondary" style="color:var(--danger)!important; border-color:var(--danger)!important; width:100%;">🔄 Forzar Reset Diario</button>
-        </div>
-
-        <div class="card">
-            <h2 style="font-size:16px; margin-bottom:12px;">📊 Eficiencia de Conversión</h2>
-            <div id="act-ratios-conversion" style="font-size:13px; display:flex; flex-direction:column; gap:8px;"></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                ${Object.keys(BaremoOficial).map(k => `
+                    <div class="ios-widget" style="padding:16px;">
+                        <span style="font-size:11px; color:var(--text-secondary); font-weight:600; text-transform:uppercase;">${k.replace('_', ' ')}</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+                            <strong id="val-${k}" style="font-size:24px; color:var(--text-primary);">0</strong>
+                            <div style="display:flex; flex-direction:column; gap:4px;">
+                                <button data-act="${k}" data-val="1" style="width:28px; height:28px; border-radius:50%; border:none; background:var(--surface-2); color:var(--text-primary); font-size:16px; font-weight:bold; cursor:pointer;">+</button>
+                                <button data-act="${k}" data-val="-1" style="width:28px; height:28px; border-radius:50%; border:none; background:var(--surface-2); color:var(--text-secondary); font-size:16px; font-weight:bold; cursor:pointer;">-</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
         </div>
     `;
 }
 
-// 3. CONTROLADOR
 export async function bindActividadEvents() {
-    await cargarActividadNube();
+    await cargarDatos();
+    document.getElementById('actividad-root').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-act]');
+        if (btn) modificar(btn.getAttribute('data-act'), parseInt(btn.getAttribute('data-val')));
+    });
+    document.getElementById('btn-save-actividad').addEventListener('click', guardarDatos);
 }
 
-async function cargarActividadNube() {
+async function cargarDatos() {
     const hoy = new Date().toISOString().split('T')[0];
     const registros = await DB.obtenerTodos('actividad_diaria');
     const delDia = registros.find(r => r.id === hoy);
-    
-    if (delDia) {
-        actividadEstadoLocal = { ...actividadEstadoLocal, ...delDia };
-        esRegistroExistente = true;
-    } else {
-        actividadEstadoLocal = { referidos: 0, llamadas: 0, citas_agendadas: 0, citas_conectadas: 0, citas_cierre: 0, solicitudes: 0, pagadas: 0, referidos_coi: 0 };
-        esRegistroExistente = false;
-    }
-    calcularMetricasYVistas();
+    if (delDia) { estadoLocal = {...estadoLocal, ...delDia}; esRegistroExistente = true; }
+    actualizarUI();
 }
 
-window.modificarContador = (campo, valor) => {
-    actividadEstadoLocal[campo] = Math.max(0, actividadEstadoLocal[campo] + valor);
-    calcularMetricasYVistas();
-};
-
-function calcularMetricasYVistas() {
-    // Motor Matemático basado en el nuevo Baremo
-    let puntos = 0;
-    for (const key in BaremoOficial) {
-        puntos += (actividadEstadoLocal[key] || 0) * BaremoOficial[key];
-    }
-
-    document.getElementById('act-puntos-hoy').innerText = puntos.toFixed(0);
-    
-    for (const key in actividadEstadoLocal) {
-        const el = document.getElementById(`act-${key}`);
-        if (el) el.innerText = actividadEstadoLocal[key];
-    }
-
-    const div = (a, b) => b > 0 ? ((a / b) * 100).toFixed(0) : 0;
-    document.getElementById('act-ratios-conversion').innerHTML = `
-        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--separator);"><span>🎯 <strong>Ref ➔ Llamadas:</strong></span> <span>${div(actividadEstadoLocal.llamadas, actividadEstadoLocal.referidos)}%</span></div>
-        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--separator);"><span>📞 <strong>Llamadas ➔ Agendadas:</strong></span> <span>${div(actividadEstadoLocal.citas_agendadas, actividadEstadoLocal.llamadas)}%</span></div>
-        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--separator);"><span>🤝 <strong>Agendadas ➔ Conectadas:</strong></span> <span>${div(actividadEstadoLocal.citas_conectadas, actividadEstadoLocal.citas_agendadas)}%</span></div>
-        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--separator);"><span>🔄 <strong>Conectadas ➔ Cierre:</strong></span> <span>${div(actividadEstadoLocal.citas_cierre, actividadEstadoLocal.citas_conectadas)}%</span></div>
-        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--separator);"><span>✍️ <strong>Cierre ➔ Solicitud:</strong></span> <span>${div(actividadEstadoLocal.solicitudes, actividadEstadoLocal.citas_cierre)}%</span></div>
-        <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>💰 <strong>Solicitud ➔ Pagada:</strong></span> <span style="color:var(--success); font-weight:bold;">${div(actividadEstadoLocal.pagadas, actividadEstadoLocal.solicitudes)}%</span></div>
-    `;
+function modificar(key, delta) {
+    estadoLocal[key] = Math.max(0, (estadoLocal[key] || 0) + delta);
+    actualizarUI();
 }
 
-window.guardarActividadNube = async () => {
+function actualizarUI() {
+    let pts = 0;
+    for (let k in BaremoOficial) {
+        pts += (estadoLocal[k] || 0) * BaremoOficial[k];
+        const el = document.getElementById(`val-${k}`);
+        if(el) el.innerText = estadoLocal[k] || 0;
+    }
+    document.getElementById('act-pts-total').innerText = pts;
+}
+
+async function guardarDatos() {
     const hoy = new Date().toISOString().split('T')[0];
-    actividadEstadoLocal.id = hoy;
-    
-    if (esRegistroExistente) await DB.actualizar('actividad_diaria', hoy, actividadEstadoLocal);
-    else {
-        await DB.guardar('actividad_diaria', actividadEstadoLocal);
-        esRegistroExistente = true; 
-    }
-    showToast('Actividad consolidada con éxito.', 'success');
-};
+    estadoLocal.id = hoy;
+    if (esRegistroExistente) await DB.actualizar('actividad_diaria', hoy, estadoLocal);
+    else { await DB.guardar('actividad_diaria', estadoLocal); esRegistroExistente = true; }
+    showToast('Actividad guardada', 'success');
+    generarTipAI();
+}
 
-window.resetearActividadDiaria = async () => {
-    const seguro = await showConfirm('¿Vaciar contadores locales de hoy?', 'Resetear Contadores', 'Vaciar', true);
-    if (seguro) {
-        actividadEstadoLocal = { referidos: 0, llamadas: 0, citas_agendadas: 0, citas_conectadas: 0, citas_cierre: 0, solicitudes: 0, pagadas: 0, referidos_coi: 0 };
-        calcularMetricasYVistas();
-    }
-};
+async function generarTipAI() {
+    const prompt = `Analiza mi actividad de ventas de seguros hoy: Referidos:${estadoLocal.referidos}, Llamadas:${estadoLocal.llamadas}, Citas:${estadoLocal.citas_agendadas}. Dame 1 línea corta y motivadora sobre qué debo hacer para mejorar o si voy excelente. Sin saludos. Estilo fitness dashboard.`;
+    await callGemini(prompt, 'ai-activity-tip');
+}

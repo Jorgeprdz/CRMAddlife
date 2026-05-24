@@ -1,4 +1,3 @@
-// /modules/referidos.js - Directorio y Ruteador (Arquitectura Modular)
 import { DB } from './db.js';
 import { showToast, showConfirm } from './utils.js';
 
@@ -45,10 +44,10 @@ export function renderReferidos() {
                 </div>
             </div>
 
-            <div class="card">
-                <h2>Directorio Inteligente</h2>
-                <input id="ref-buscador" placeholder="🔍 Buscar por nombre..." style="margin-bottom:12px; width:100%;">
-                <div id="lista-referidos-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <div class="card" style="background:transparent; border:none; padding:0;">
+                <h2 style="margin-bottom:12px;">Directorio Inteligente</h2>
+                <input id="ref-buscador" placeholder="🔍 Buscar por nombre..." style="margin-bottom:16px; width:100%; border-radius:12px; padding:12px; border:1px solid var(--separator);">
+                <div id="lista-referidos-container" style="display:flex; flex-direction:column;"></div>
             </div>
         </div>
     `;
@@ -58,12 +57,9 @@ export async function bindReferidosEvents() {
     const root = document.getElementById('referidos-root');
     if (!root) return;
 
-    // Event Delegation
     root.addEventListener('click', handleReferidosClicks);
     document.getElementById('btn-guardar-ref')?.addEventListener('click', Controller.guardarReferido);
     document.getElementById('btn-cancelar-ref')?.addEventListener('click', () => State.reset());
-    
-    // Búsqueda en memoria local (Fast DOM filtering sin golpear BD)
     document.getElementById('ref-buscador')?.addEventListener('input', (e) => Controller.filtrarUI(e.target.value));
 
     await Controller.cargarDirectorio();
@@ -121,25 +117,24 @@ const Controller = {
     _renderHTML(lista) {
         const container = document.getElementById('lista-referidos-container');
         if (lista.length === 0) {
-            container.innerHTML = `<div style="text-align:center; color:var(--text-secondary);">Directorio vacío o sin coincidencias.</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-secondary);">Directorio vacío.</div>`;
             return;
         }
 
         container.innerHTML = lista.map(r => {
-            const ui = SemaforoColores[r.estado] || { color: '#ccc' };
+            const ui = SemaforoColores[r.estado] || { color: '#ccc', label: r.estado };
             return `
-                <div style="background:var(--surface-2); padding:14px; border-radius:14px; border:1px solid var(--separator); border-left: 6px solid ${ui.color};">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <strong>${r.nombre}</strong>
-                        <span style="font-size:10px; font-weight:bold; color:white; background:${ui.color}; padding:2px 8px; border-radius:10px;">${r.estado}</span>
+                <div class="ios-widget" style="margin-bottom:12px; border-left:4px solid ${ui.color}; box-shadow:-4px 0 16px ${ui.color}22, 0 4px 12px rgba(0,0,0,0.03); padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h3 style="margin:0; font-size:16px; font-weight:700;">${r.nombre}</h3>
+                            <p style="margin:4px 0 0 0; font-size:12px; color:var(--text-secondary);">👤 COI: ${r.origen || 'No indicado'} | 📞 ${r.telefono || 'N/A'}</p>
+                        </div>
+                        <span style="background:${ui.color}15; color:${ui.color}; border:1px solid ${ui.color}40; font-size:11px; font-weight:700; padding:4px 10px; border-radius:12px;">${r.estado}</span>
                     </div>
-                    <p style="font-size:12px; color:var(--text-secondary); margin:4px 0;">
-                        👤 COI: ${r.origen || 'No indicado'} | 📞 ${r.telefono || 'N/A'}
-                    </p>
-                    <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
-                        <button data-action="enrutar-embudo" data-id="${r.id}" class="btn-primary" style="background:#007AFF!important; border-color:#007AFF!important; padding:4px 8px!important; font-size:11px;">🚀 A Prospectos</button>
-                        <button data-action="editar-referido" data-id="${r.id}" class="btn-secondary" style="padding:4px 8px!important; font-size:11px;">✏️ Editar</button>
-                        <button data-action="eliminar-referido" data-id="${r.id}" class="btn-secondary" style="padding:4px 8px!important; font-size:11px; color:var(--danger)!important;">🗑️ Borrar</button>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                        <button data-action="enrutar-embudo" data-id="${r.id}" class="btn-primary" style="background:#007AFF!important; border-radius:10px; font-size:12px; padding:6px 12px!important;">💬 Enviar Mensaje</button>
+                        <button data-action="editar-referido" data-id="${r.id}" class="btn-secondary" style="border-radius:10px; font-size:12px; padding:6px 12px!important;">✏️ Editar</button>
                     </div>
                 </div>
             `;
@@ -150,6 +145,7 @@ const Controller = {
         const ref = State.datos.find(x => x.id === id);
         if (!ref) return;
         localStorage.setItem('auto_prospecto', JSON.stringify(ref));
+        localStorage.setItem('auto_generar_guion', 'true');
         window.navigateTo('prospeccion');
     },
 

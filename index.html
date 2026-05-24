@@ -3,96 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CRM Addlife Core</title>
-    
+    <title>CRM Addlife Premium</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" id="meta-theme-color" content="#F2F2F7">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
     <header class="app-header" id="main-header">
-        <span class="app-header-title" id="header-title">CRM Addlife</span>
-        <div class="ios-toggle-wrap" title="Modo oscuro">
-            <span class="toggle-icon">☀️</span>
-            <label class="ios-toggle" aria-label="Activar modo oscuro">
-                <input type="checkbox" id="theme-toggle">
-                <div class="ios-toggle-track"></div>
-                <div class="ios-toggle-thumb"></div>
-            </label>
-            <span class="toggle-icon">🌙</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <img id="header-avatar" src="https://via.placeholder.com/40" style="width:36px; height:36px; border-radius:50%; display:none; border:2px solid var(--accent); object-fit:cover;">
+            <div style="display:flex; flex-direction:column;">
+                <span id="header-greeting" style="font-size:11px; color:var(--text-secondary); font-weight:500;">CRM Addlife</span>
+                <strong id="header-name" style="font-size:15px; color:var(--text-primary); letter-spacing:-0.3px;">Inicia sesión</strong>
+            </div>
+        </div>
+        <div class="ios-toggle-wrap">
+            <label class="ios-toggle"><input type="checkbox" id="theme-toggle"><div class="ios-toggle-track"></div><div class="ios-toggle-thumb"></div></label>
         </div>
     </header>
 
     <main id="app-content"></main>
 
     <nav id="main-sidebar" class="bottom-nav" style="display: none;">
-        <button class="nav-btn active" data-target="dashboard">
-            <span class="icon">🏠</span><span class="label">Inicio</span>
-        </button>
-        <button class="nav-btn" data-target="prospeccion">
-            <span class="icon">🎯</span><span class="label">Embudo</span>
-        </button>
-        <button class="nav-btn" data-target="referidos">
-            <span class="icon">👥</span><span class="label">Directorio</span>
-        </button>
-        <button class="nav-btn" data-target="actividad">
-            <span class="icon">📈</span><span class="label">Actividad</span>
-        </button>
-        <button class="nav-btn" data-target="cartera">
-            <span class="icon">💼</span><span class="label">Cartera</span>
-        </button>
-        <button class="nav-btn" data-target="comisiones">
-            <span class="icon">💰</span><span class="label">Finanzas</span>
-        </button>
-        <button class="nav-btn nav-btn-logout" onclick="cerrarSesion()">
-            <span class="icon">🚪</span><span class="label">Salir</span>
-        </button>
+        <button class="nav-btn active" data-target="dashboard"><span class="icon">🏠</span><span class="label">Inicio</span></button>
+        <button class="nav-btn" data-target="prospeccion"><span class="icon">🎯</span><span class="label">Embudo</span></button>
+        <button class="nav-btn" data-target="referidos"><span class="icon">👥</span><span class="label">Directorio</span></button>
+        <button class="nav-btn" data-target="actividad"><span class="icon">📈</span><span class="label">Actividad</span></button>
+        <button class="nav-btn" data-target="cartera"><span class="icon">💼</span><span class="label">Cartera</span></button>
+        <button class="nav-btn" data-target="comisiones"><span class="icon">💰</span><span class="label">Finanzas</span></button>
     </nav>
 
-    <div id="ai-chat-bubble" class="chat-bubble-trigger">
-        <span class="icon-chat">💬</span>
-    </div>
+    <div id="ai-chat-bubble" class="chat-bubble-trigger" style="display:none;">💬</div>
 
     <div id="ai-chat-window" class="chat-window-modal">
         <div class="chat-header">
-            <div class="chat-title-group">
-                <span class="icon-bot">🎯</span>
-                <span class="title-bot">Mentor Comercial</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">🧠</span>
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-size:13px; font-weight:600;">Mentor Comercial</span>
+                    <span style="font-size:10px; color:var(--success);">En línea</span>
+                </div>
             </div>
             <div id="close-chat" class="chat-close-btn">✕</div>
         </div>
-        
-        <div id="ai-chat-messages" class="chat-messages-container">
-            <div class="msg-row ia-row">
-                <div class="chat-bubble ia-bubble">Pregunta algo sobre estrategia de cierre, objeciones o sobre tu cartera...</div>
-            </div>
-        </div>
-        
+        <div id="ai-chat-messages" class="chat-messages-container"></div>
         <div class="chat-input-area">
-            <input id="ai-chat-input" placeholder="Escribe tu duda comercial..." autocomplete="off">
+            <input id="ai-chat-input" placeholder="Pregunta sobre cierres o métricas..." autocomplete="off">
             <button id="ai-chat-send" class="chat-send-btn">↑</button>
         </div>
     </div>
 
     <script type="module" src="app.js"></script>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => {
-                        console.log('[PWA] Service Worker registrado exitosamente con scope:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.error('[PWA] Error al registrar el Service Worker:', error);
-                    });
-            });
-        }
-    </script>
 </body>
 </html>
