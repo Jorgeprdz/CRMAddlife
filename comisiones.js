@@ -402,9 +402,9 @@ function bindConfigForm(sb, userId) {
         }
 
         try {
-            // FIX: upsert correcto con on_conflict
+            // Solo columnas que existen en Supabase (limra e igc van solo en DB local)
             const { error } = await sb.from('perfil_asesor').upsert(
-                [{ user_id:userId, fecha_conexion:f, esquema, limra, igc }],
+                [{ user_id: userId, fecha_conexion: f, esquema }],
                 { onConflict: 'user_id' }
             );
             if(error) throw error;
@@ -433,7 +433,9 @@ function bindConfigFormIndices(sb, userId, perfil) {
         const igc   = parseFloat(document.getElementById('idx-igc').value)||91.0;
 
         try {
-            await sb.from('perfil_asesor').update({ limra, igc }).eq('user_id', userId);
+            // limra e igc no son columnas de Supabase — actualizar solo en DB local
+            const loc2 = await DB.obtenerTodos('perfil_asesor');
+            if(loc2.length > 0) await DB.actualizar('perfil_asesor', loc2[0].id, { ...loc2[0], limra, igc });
             try {
                 const loc = await DB.obtenerTodos('perfil_asesor');
                 if(loc.length>0) await DB.actualizar('perfil_asesor', loc[0].id, { ...perfil, limra, igc });
