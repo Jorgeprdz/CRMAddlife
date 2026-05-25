@@ -1,4 +1,4 @@
-// comisiones.js — Motor Financiero SMNYL v5
+// comisiones.js — Motor Financiero SMNYL v6
 // Cuadernos 2026: Asesores en Desarrollo + Nuevos Profesionales
 
 import { DB } from './db.js';
@@ -256,7 +256,7 @@ export async function bindComisionesEvents() {
             const {data} = await sb.from('perfil_asesor').select('*').eq('user_id',user.id); 
             if(data?.length) {
                 perfil = data[0];
-                try { await DB.guardar('perfil_asesor', { id:'perfil_'+Date.now(), ...perfil }); } catch(_){}
+                try { await DB.guardar('perfil_asesor', { id:'perfil_'+Date.now(), ...perfil, user_id: user.id }); } catch(_){}
             } 
         }
 
@@ -357,7 +357,7 @@ function renderConfigFormIndices(perfil) {
                 <input type="number" id="idx-igc" placeholder="Ej. 93.0" step="0.1" min="0" max="100" value="${perfil.igc||1.0}" style="width:100%;margin-top:6px;">
                 <p style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">Mínimo aprobatorio: 91.0%</p>
             </div>
-            <button id="btn-save-indices" class="btn-primary">💾 Sellar Índices del Mes</button>
+            <button id="btn-save-indices" class="btn-primary">ACTUALIZAR</button>
         </div>
     </div>
     </div>`;
@@ -409,7 +409,7 @@ function bindConfigForm(sb, userId) {
             if(error) throw error;
 
             try {
-                const datos = { fecha_conexion:f, esquema, limra, igc };
+                const datos = { fecha_conexion:f, esquema, limra, igc, user_id: userId };
                 const loc = await DB.obtenerTodos('perfil_asesor');
                 if(loc.length>0){ await DB.actualizar('perfil_asesor', loc[0].id, datos); }
                 else { await DB.guardar('perfil_asesor', { id:'perfil_'+Date.now(), ...datos }); }
@@ -431,7 +431,7 @@ function bindConfigFormIndices(sb, userId, perfil) {
 
         try {
             const loc = await DB.obtenerTodos('perfil_asesor');
-            const datosActualizados = { ...perfil, limra, igc, fecha_actualizacion_indices: hoyStr };
+            const datosActualizados = { ...perfil, user_id: userId, limra, igc, fecha_actualizacion_indices: hoyStr };
             
             if(loc.length > 0) {
                 await DB.actualizar('perfil_asesor', loc[0].id, datosActualizados);
