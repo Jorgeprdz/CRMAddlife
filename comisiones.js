@@ -15,13 +15,13 @@ const TASAS_VIDA = {
     'Orvi':               { default:[0.44,0.15,0.10,0.10,0.05,0.02] },
     'Orvi 99':            { default:[0.44,0.15,0.10,0.10,0.05,0.02] },
     'Realiza':            { default:[0.44,0.15,0.10,0.05,0.05,0.008] },
+    'Vida Mujer':         { default:[0.40,0.15,0.10,0.05,0.05,0.02] },
     // ── Otros productos ───────────────────────────────────────────────────
     'Star Temporal':      { default:[0.35,0.15,0.10,0.10,0.05,0.02], '20a <500k':[0.44,0.15,0.10,0.10,0.05,0.02], '10a >=500k':[0.30,0.15,0.10,0.10,0.05,0.00], '1a':[0.22,0,0,0,0,0], '5a':[0.35,0.10,0.09,0.09,0,0] },
     'Mio':                { default:[0.80,0.20,0.14,0.08,0.08,0.02] },
     'Objetivo Vida':      { default:[0.44,0.15,0.10,0.05,0.05,0.01] },
     'Nuevo Plenitud':     { default:[0.35,0.12,0.08,0.05,0.05,0.035], '15 Pagos':[0.32,0.05,0.04,0.02,0.02,0] },
     'Plenitud':           { default:[0.35,0.12,0.08,0.05,0.05,0.035] },
-    'Vida Mujer':         { default:[0.40,0.15,0.10,0.05,0.05,0.02] },
     'Nuevo Vida Mujer':   { default:[0.40,0.15,0.10,0.05,0.05,0.02] },
     'Star Dotal':         { default:[0.35,0.12,0.10,0.05,0.05,0.02], '5a':[0.11,0.05,0.04,0,0,0], '10a':[0.27,0.09,0.07,0.05,0.05,0], '15a':[0.28,0.09,0.07,0.05,0.05,0.05] },
     'Legado':             { default:[0.44,0.15,0.10,0.05,0.05,0.01] },
@@ -242,7 +242,6 @@ function calcularMotor(cartera, perfil) {
 // RENDER
 // ═══════════════════════════════════════════════════════════════════════════
 export function renderComisiones() {
-    // FIX: sin skeleton-shimmer (no estaba en CSS) — spinner simple
     return `<div id="fin-root" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:12px;">
         <div style="width:40px;height:40px;border:3px solid var(--separator);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
         <p style="font-size:13px;color:var(--text-secondary);">Cargando módulo financiero...</p>
@@ -269,13 +268,11 @@ export async function bindComisionesEvents() {
             return;
         }
 
-        // Determinar si es mes 15+ para mostrar LIMRA/IGC
         const hoy = new Date();
         const fxConn = new Date((perfil.fecha_conexion||perfil.fechaConexion)+'T12:00:00');
         const mc = Math.max(1, Math.floor((hoy-fxConn)/(1000*60*60*24*30.44))+1);
         const necesitaIndices = mc >= 15;
 
-        // Si es mes 15+ y no tiene índices, mostrar form para capturarlos
         if(necesitaIndices && (!perfil.limra || !perfil.igc)){
             root.innerHTML = renderConfigFormIndices(perfil);
             bindConfigFormIndices(sb, user.id, perfil);
@@ -363,7 +360,6 @@ function bindConfigForm(sb, userId) {
     const indicesWrap = document.getElementById('cfg-indices-wrap');
     const infoDiv = document.getElementById('cfg-cuaderno-info');
 
-    // Mostrar info dinámica al cambiar fecha
     fecInput?.addEventListener('change', () => {
         const f = fecInput.value;
         if(!f) return;
@@ -378,12 +374,8 @@ function bindConfigForm(sb, userId) {
             Cuaderno: <strong style="color:var(--accent);">${esDes?'Asesor en Desarrollo — Training Allowance':'Nuevo Profesional — Bonos Vida + GMM'}</strong>
             ${!esDes?'<br>Factor comisión: 100%':'<br>Factor comisión: 90% (primeros 12 meses)'}`;
 
-        // Mostrar campos LIMRA/IGC solo si es mes 15+
-        if(mc >= 15){
-            indicesWrap.style.display = 'flex';
-        } else {
-            indicesWrap.style.display = 'none';
-        }
+        if(mc >= 15){ indicesWrap.style.display = 'flex'; } 
+        else { indicesWrap.style.display = 'none'; }
     });
 
     document.getElementById('btn-save-cfg')?.addEventListener('click', async () => {
@@ -402,14 +394,12 @@ function bindConfigForm(sb, userId) {
         }
 
         try {
-            // Solo columnas que existen en Supabase (limra e igc van solo en DB local)
             const { error } = await sb.from('perfil_asesor').upsert(
                 [{ user_id: userId, fecha_conexion: f, esquema }],
                 { onConflict: 'user_id' }
             );
             if(error) throw error;
 
-            // También guardar en DB local para offline
             try {
                 const loc = await DB.obtenerTodos('perfil_asesor');
                 const datos = { fecha_conexion:f, esquema, limra, igc };
@@ -418,7 +408,6 @@ function bindConfigForm(sb, userId) {
             } catch(_){}
 
             showToast('✅ Perfil guardado','success');
-            // FIX: pequeño delay antes de navegar para que el toast sea visible
             setTimeout(() => window.navigateTo('comisiones'), 400);
         } catch(e){
             console.error(e);
@@ -433,7 +422,6 @@ function bindConfigFormIndices(sb, userId, perfil) {
         const igc   = parseFloat(document.getElementById('idx-igc').value)||91.0;
 
         try {
-            // limra e igc no son columnas de Supabase — actualizar solo en DB local
             const loc2 = await DB.obtenerTodos('perfil_asesor');
             if(loc2.length > 0) await DB.actualizar('perfil_asesor', loc2[0].id, { ...loc2[0], limra, igc });
             try {
@@ -498,7 +486,7 @@ function buildUI(r, perfil) {
         const pctP=Math.min((r.puntosSem/bono.meta.ptosAcum)*100,100);
         const semLabel = bono.mc<=6?'Semestre 1':'Semestre 2';
         bonoHTML=`
-        <div class="card" style="border-left:4px solid var(--warning);margin:0 16px 16px;">
+        <div class="card" style="border-left:4px solid var(--warning);margin:0;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
                 <h2 style="font-size:15px;margin:0;">🏆 Training Allowance</h2>
                 <div style="text-align:right;">
@@ -526,7 +514,7 @@ function buildUI(r, perfil) {
             </div>
             <div style="background:var(--surface-2);border-radius:16px;padding:16px;text-align:center;margin-bottom:12px;">
                 <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Bono proyectado</span>
-                <div style="font-size:36px;font-weight:800;letter-spacing:-1px;color:${bono.cumple?'var(--success)':'var(--text-secondary)'};">${fmt(bono.total)}</div>
+                <div style="font-size:clamp(32px, 8vw, 36px);font-weight:800;letter-spacing:-1px;color:${bono.cumple?'var(--success)':'var(--text-secondary)'};">${fmt(bono.total)}</div>
                 ${bono.exc>0?`<div style="font-size:12px;color:var(--success);margin-top:2px;">Base ${fmt(bono.base)} + Excedente ${fmt(bono.exc)}</div>`:''}
                 <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">Tope del mes: ${fmt(bono.meta.premMax)}</div>
             </div>
@@ -536,7 +524,7 @@ function buildUI(r, perfil) {
         </div>`;
     } else {
         bonoHTML=`
-        <div class="card" style="border-left:4px solid var(--warning);margin:0 16px 16px;">
+        <div class="card" style="border-left:4px solid var(--warning);margin:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
                 <h2 style="font-size:15px;margin:0;">🏆 Bonos Nuevo Profesional</h2>
                 <button id="btn-update-indices" style="font-size:11px;color:var(--accent);background:var(--accent-soft);border:none;padding:4px 10px;border-radius:12px;cursor:pointer;">📊 Actualizar LIMRA/IGC</button>
@@ -547,7 +535,7 @@ function buildUI(r, perfil) {
                     <span class="badge badge-blue">${bono.grupo?`Grupo ${bono.grupo}`:'Sin grupo aún'}</span>
                 </div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Prima meta sem: <strong>${fmt(r.primaMetaSem)}</strong> · LIMRA: <strong>${bono.limra}%</strong> · Bono: <strong>${(bono.pct*100).toFixed(1)}%</strong></div>
-                <div style="font-size:28px;font-weight:800;color:${bono.montoBI>0?'var(--accent)':'var(--text-secondary)'};">${fmt(bono.montoBI)}</div>
+                <div style="font-size:clamp(24px, 6vw, 28px);font-weight:800;color:${bono.montoBI>0?'var(--accent)':'var(--text-secondary)'};">${fmt(bono.montoBI)}</div>
             </div>
             <div style="background:var(--surface-2);border-radius:14px;padding:14px;margin-bottom:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -555,181 +543,183 @@ function buildUI(r, perfil) {
                     <span class="badge ${bono.grupoGMM?'badge-green':'badge-orange'}">${bono.grupoGMM?`Grupo ${bono.grupoGMM.g}`:'Sin grupo GMM'}</span>
                 </div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Prima GMM: <strong>${fmt(r.primaGMMtrim)}</strong> · Pólizas: <strong>${r.polsGMMtrim}</strong></div>
-                <div style="font-size:28px;font-weight:800;color:${bono.montoGMM>0?'var(--success)':'var(--text-secondary)'};">${fmt(bono.montoGMM)}</div>
+                <div style="font-size:clamp(24px, 6vw, 28px);font-weight:800;color:${bono.montoGMM>0?'var(--success)':'var(--text-secondary)'};">${fmt(bono.montoGMM)}</div>
             </div>
             <div style="background:var(--surface-2);border-radius:14px;padding:14px;text-align:center;">
                 <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Total bonos</span>
-                <div style="font-size:32px;font-weight:800;color:${bono.total>0?'var(--success)':'var(--text-secondary)'};">${fmt(bono.total)}</div>
+                <div style="font-size:clamp(28px, 7vw, 32px);font-weight:800;color:${bono.total>0?'var(--success)':'var(--text-secondary)'};">${fmt(bono.total)}</div>
             </div>
         </div>`;
     }
 
     return `
-    <!-- ① Banner -->
-    <div class="card" style="background:var(--accent);color:white;border:none;margin:16px;">
-        <p style="font-size:11px;color:rgba(255,255,255,.8);margin:0;text-transform:uppercase;font-weight:600;letter-spacing:.5px;">💰 Ingresos Estimados — ${mesNom}</p>
-        <div style="font-size:42px;font-weight:800;letter-spacing:-2px;color:white;margin:8px 0;">${fmt(totalMes+bono.total)}</div>
-        <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.2);padding-top:10px;">
-            <div><span style="font-size:10px;opacity:.8;">INICIALES</span><br><strong style="font-size:16px;">${fmt(r.comInicialMes)}</strong></div>
-            <div style="text-align:center;"><span style="font-size:10px;opacity:.8;">RENOVACIÓN</span><br><strong style="font-size:16px;">${fmt(r.comRenovMes)}</strong></div>
-            <div style="text-align:right;"><span style="font-size:10px;opacity:.8;">BONO</span><br><strong style="font-size:16px;color:#4CD964;">${fmt(bono.total)}</strong></div>
-        </div>
-    </div>
-
-    <!-- ② KPIs -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px 16px;">
-        <div class="card" style="margin:0;border-left:4px solid var(--accent);">
-            <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Pólizas este mes</span><br>
-            <strong style="font-size:30px;color:var(--text-primary);">${detallesMes.length}</strong>
-        </div>
-        <div class="card" style="margin:0;border-left:4px solid var(--success);">
-            <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Puntos concurso</span><br>
-            <strong style="font-size:30px;color:var(--text-primary);">${fmtN(r.puntosMes)}</strong>
-        </div>
-        <div class="card" style="margin:0;border-left:4px solid var(--warning);">
-            <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Mes anterior</span><br>
-            <strong style="font-size:18px;color:var(--text-primary);">${fmt(r.comMesPasado)}</strong>
-            <span style="font-size:11px;color:var(--text-tertiary);display:block;">${mesPasNom}</span>
-        </div>
-        <div class="card" style="margin:0;border-left:4px solid var(--separator);">
-            <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">YTD</span><br>
-            <strong style="font-size:18px;color:var(--text-primary);">${fmt(r.comYTD)}</strong>
-        </div>
-    </div>
-
-    <!-- ③ Bono -->
-    ${bonoHTML}
-
-    <!-- ④ Tabla detalle -->
-    <div class="card" style="margin:0 16px 16px;">
-        <h2 style="font-size:15px;margin-bottom:4px;">📋 Comisiones del Mes</h2>
-        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Pólizas que generaron comisión en ${mesNom}.</p>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-            <table style="width:100%;border-collapse:collapse;min-width:480px;">
-                <thead>
-                    <tr style="border-bottom:2px solid var(--separator);">
-                        <th style="text-align:left;padding:8px 8px 8px 0;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Cliente</th>
-                        <th style="text-align:left;padding:8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Plan</th>
-                        <th style="text-align:right;padding:8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Prima</th>
-                        <th style="text-align:center;padding:8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Tasa</th>
-                        <th style="text-align:right;padding:8px 0;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Comisión</th>
-                        <th style="text-align:center;padding:8px 0 8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Pts</th>
-                    </tr>
-                </thead>
-                <tbody>${tablaFilas}</tbody>
-                ${detallesMes.length>0?`
-                <tfoot>
-                    <tr style="border-top:2px solid var(--separator);">
-                        <td colspan="4" style="padding:10px 4px 6px;font-size:13px;font-weight:700;color:var(--text-primary);">Total</td>
-                        <td style="padding:10px 0 6px;text-align:right;font-size:15px;font-weight:800;color:var(--accent);">${fmt(r.comInicialMes+r.comRenovMes)}</td>
-                        <td style="padding:10px 0 6px 4px;text-align:center;font-size:13px;font-weight:700;color:var(--text-primary);">${fmtN(r.puntosMes)}</td>
-                    </tr>
-                </tfoot>`:''}
-            </table>
-        </div>
-    </div>
-
-    <!-- ⑤ Gráfica -->
-    <div class="card" style="margin:0 16px 16px;">
-        <h2 style="font-size:15px;margin-bottom:16px;">📊 Histórico — Últimos 6 Meses</h2>
-        <div style="display:flex;align-items:flex-end;gap:6px;padding:0 4px;">${graficaHTML}</div>
-        <div style="display:flex;justify-content:center;gap:20px;margin-top:12px;">
-            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);"><div style="width:10px;height:10px;background:var(--accent);border-radius:3px;opacity:.45;"></div>Iniciales</div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);"><div style="width:10px;height:10px;background:var(--success);border-radius:3px;"></div>Renovación</div>
-        </div>
-    </div>
-
-    <!-- ⑥ Proyección -->
-    <div class="card" style="margin:0 16px 16px;">
-        <h2 style="font-size:15px;margin-bottom:12px;">📈 Proyección Anual</h2>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div style="background:var(--surface-2);padding:12px;border-radius:14px;">
-                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Promedio mensual</span><br>
-                <strong style="font-size:20px;color:var(--text-primary);">${fmt(r.promedioMensual)}</strong>
-            </div>
-            <div style="background:var(--surface-2);padding:12px;border-radius:14px;">
-                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Proyección al cierre</span><br>
-                <strong style="font-size:20px;color:var(--accent);">${fmt(r.proyeccionAnual)}</strong>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px;padding:0 16px 16px;">
+        
+        <div class="card" style="grid-column:1/-1;background:var(--surface-2);border:2px solid var(--accent);color:var(--text-primary);margin:0;">
+            <p style="font-size:11px;color:var(--text-secondary);margin:0;text-transform:uppercase;font-weight:700;letter-spacing:.5px;">💰 Ingresos Estimados — ${mesNom}</p>
+            <div style="font-size:clamp(36px, 8vw, 42px);font-weight:800;letter-spacing:-2px;color:var(--text-primary);margin:8px 0;">${fmt(totalMes+bono.total)}</div>
+            <div style="display:flex;justify-content:space-between;border-top:1px solid var(--separator);padding-top:10px;">
+                <div><span style="font-size:10px;color:var(--text-tertiary);font-weight:600;">INICIALES</span><br><strong style="font-size:16px;">${fmt(r.comInicialMes)}</strong></div>
+                <div style="text-align:center;"><span style="font-size:10px;color:var(--text-tertiary);font-weight:600;">RENOVACIÓN</span><br><strong style="font-size:16px;">${fmt(r.comRenovMes)}</strong></div>
+                <div style="text-align:right;"><span style="font-size:10px;color:var(--text-tertiary);font-weight:600;">BONO</span><br><strong style="font-size:16px;color:var(--success);">${fmt(bono.total)}</strong></div>
             </div>
         </div>
-        <p style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">Basada en ${hist6.filter(h=>h.ini+h.ren>0).length} meses con actividad.</p>
-    </div>
 
-    <!-- ⑦ Simulador -->
-    <div class="card" style="border-left:4px solid #5856D6;margin:0 16px 16px;">
-        <h2 style="font-size:15px;margin-bottom:4px;">🔮 Simulador de Cierre</h2>
-        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Calcula comisión y puntos antes de emitir.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-            <div>
-                <label style="font-size:11px;color:var(--text-secondary);">Producto</label>
-                <select id="sim-plan" style="width:100%;margin-top:4px;">
-                    <optgroup label="⭐ Más vendidos">
-                        <option value="Segubeca">Segubeca</option>
-                        <option value="Imagina Ser">Imagina Ser</option>
-                        <option value="Orvi 99">Orvi 99</option>
-                        <option value="Realiza">Realiza</option>
-                        <option value="Alfa Medical">GMM — Alfa Medical</option>
-                        <option value="Alfa Medical Flex">GMM — Alfa Medical Flex</option>
-                        <option value="Alfa Medical Internacional">GMM — Alfa Medical Internacional</option>
-                    </optgroup>
-                    <optgroup label="Otros">
-                        <option value="Star Temporal">Star Temporal</option>
-                        <option value="Mio">Mío</option>
-                        <option value="Objetivo Vida">Objetivo Vida</option>
-                        <option value="Nuevo Plenitud">Nuevo Plenitud</option>
-                        <option value="Vida Mujer">Vida Mujer</option>
-                        <option value="Star Dotal">Star Dotal</option>
-                        <option value="Legado">Legado</option>
-                        <option value="Respaldo Educativo">Respaldo Educativo</option>
-                        <option value="Respaldo Negocio">Respaldo Negocio</option>
-                    </optgroup>
-                </select>
+        <div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;">
+            <div class="card" style="margin:0;border-left:4px solid var(--accent);">
+                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Pólizas este mes</span><br>
+                <strong style="font-size:24px;color:var(--text-primary);">${detallesMes.length}</strong>
             </div>
-            <div>
-                <label style="font-size:11px;color:var(--text-secondary);">Prima anual</label>
-                <input type="number" id="sim-prima" placeholder="25000" style="width:100%;margin-top:4px;">
+            <div class="card" style="margin:0;border-left:4px solid var(--success);">
+                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Puntos concurso</span><br>
+                <strong style="font-size:24px;color:var(--text-primary);">${fmtN(r.puntosMes)}</strong>
             </div>
-            <div>
-                <label style="font-size:11px;color:var(--text-secondary);">Cantidad</label>
-                <input type="number" id="sim-cant" value="1" min="1" max="20" style="width:100%;margin-top:4px;">
+            <div class="card" style="margin:0;border-left:4px solid var(--warning);">
+                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Mes anterior</span><br>
+                <strong style="font-size:16px;color:var(--text-primary);">${fmt(r.comMesPasado)}</strong>
+                <span style="font-size:10px;color:var(--text-tertiary);display:block;">${mesPasNom}</span>
             </div>
-            <div style="display:flex;align-items:flex-end;">
-                <button id="btn-simular" class="btn-primary" style="width:100%;">Calcular</button>
+            <div class="card" style="margin:0;border-left:4px solid var(--separator);">
+                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">YTD</span><br>
+                <strong style="font-size:16px;color:var(--text-primary);">${fmt(r.comYTD)}</strong>
             </div>
         </div>
-        <div id="sim-resultado" style="background:var(--surface-2);border-radius:12px;padding:14px;display:none;"></div>
-    </div>
 
-    <!-- ⑧ Tips IA -->
-    <div class="card" style="border-left:4px solid var(--accent);margin:0 16px 16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <h2 style="font-size:15px;margin:0;">💡 Tips y Recomendaciones</h2>
-            <button id="btn-gen-tips" class="btn-primary" style="padding:8px 14px !important;font-size:12px !important;border-radius:20px !important;">✨ Generar</button>
-        </div>
-        <div id="out-tips" style="font-size:13px;color:var(--text-primary);line-height:1.7;min-height:60px;white-space:pre-wrap;">Presiona "Generar" para recibir estrategias con tus números reales.</div>
-    </div>
-
-    <!-- ⑨ YTD -->
-    <div class="card" style="margin:0 16px 16px;">
-        <h2 style="font-size:15px;margin-bottom:12px;">🏅 Acumulados del Año</h2>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--separator);">
-                <span style="font-size:14px;color:var(--text-secondary);">Ingreso anual total</span>
-                <strong style="font-size:18px;color:var(--text-primary);">${fmt(r.comYTD)}</strong>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            ${bonoHTML}
+            
+            <div class="card" style="border-left:4px solid #5856D6;margin:0;">
+                <h2 style="font-size:15px;margin-bottom:4px;">🔮 Simulador de Cierre</h2>
+                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Calcula comisión y puntos por recibo emitido.</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                    <div style="grid-column:span 2;">
+                        <label style="font-size:11px;color:var(--text-secondary);">Producto</label>
+                        <select id="sim-plan" style="width:100%;margin-top:4px;">
+                            <optgroup label="⭐ Más vendidos">
+                                <option value="Segubeca">Segubeca</option>
+                                <option value="Vida Mujer">Vida Mujer</option>
+                                <option value="Imagina Ser">Imagina Ser</option>
+                                <option value="Orvi 99">Orvi 99</option>
+                                <option value="Realiza">Realiza</option>
+                                <option value="Alfa Medical">GMM — Alfa Medical</option>
+                                <option value="Alfa Medical Flex">GMM — Alfa Medical Flex</option>
+                                <option value="Alfa Medical Internacional">GMM — Alfa Medical Internacional</option>
+                            </optgroup>
+                            <optgroup label="Otros">
+                                <option value="Star Temporal">Star Temporal</option>
+                                <option value="Mio">Mío</option>
+                                <option value="Objetivo Vida">Objetivo Vida</option>
+                                <option value="Nuevo Plenitud">Nuevo Plenitud</option>
+                                <option value="Star Dotal">Star Dotal</option>
+                                <option value="Legado">Legado</option>
+                                <option value="Respaldo Educativo">Respaldo Educativo</option>
+                                <option value="Respaldo Negocio">Respaldo Negocio</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:11px;color:var(--text-secondary);">Prima Anual</label>
+                        <input type="number" id="sim-prima" placeholder="25000" style="width:100%;margin-top:4px;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;color:var(--text-secondary);">Frecuencia de Pago</label>
+                        <select id="sim-fp" style="width:100%;margin-top:4px;">
+                            <option value="Anual">Anual</option>
+                            <option value="Semestral">Semestral</option>
+                            <option value="Trimestral">Trimestral</option>
+                            <option value="Mensual">Mensual</option>
+                        </select>
+                    </div>
+                    <div style="grid-column:span 2;">
+                        <button id="btn-simular" class="btn-primary" style="width:100%;">Calcular</button>
+                    </div>
+                </div>
+                <div id="sim-resultado" style="background:var(--surface-2);border-radius:12px;padding:14px;display:none;"></div>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:14px;color:var(--text-secondary);">Iniciales YTD</span>
-                <strong style="font-size:18px;color:var(--success);">${fmt(r.comInicialYTD)}</strong>
+
+            <div class="card" style="border-left:4px solid var(--accent);margin:0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <h2 style="font-size:15px;margin:0;">💡 Tips y Recomendaciones</h2>
+                    <button id="btn-gen-tips" class="btn-primary" style="padding:8px 14px !important;font-size:12px !important;border-radius:20px !important;">✨ Generar</button>
+                </div>
+                <div id="out-tips" style="font-size:13px;color:var(--text-primary);line-height:1.7;min-height:60px;white-space:pre-wrap;">Presiona "Generar" para recibir estrategias con tus números reales.</div>
             </div>
         </div>
-    </div>
 
-    <!-- ⑩ Modo Dev — botón rojo con borde punteado -->
-    <div style="margin:8px 16px 32px;border:2px dashed var(--danger);border-radius:16px;padding:16px;opacity:.75;">
-        <p style="font-size:11px;color:var(--danger);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px;text-align:center;">⚙️ MODO DESARROLLADOR</p>
-        <button id="btn-dev-reset" style="width:100%;background:transparent;border:1.5px solid var(--danger);color:var(--danger);border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-            🔄 Resetear Perfil Financiero
-        </button>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="card" style="margin:0;">
+                <h2 style="font-size:15px;margin-bottom:16px;">📊 Histórico — Últimos 6 Meses</h2>
+                <div style="display:flex;align-items:flex-end;gap:6px;padding:0 4px;">${graficaHTML}</div>
+                <div style="display:flex;justify-content:center;gap:20px;margin-top:12px;">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);"><div style="width:10px;height:10px;background:var(--accent);border-radius:3px;opacity:.45;"></div>Iniciales</div>
+                    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);"><div style="width:10px;height:10px;background:var(--success);border-radius:3px;"></div>Renovación</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin:0;">
+                <h2 style="font-size:15px;margin-bottom:4px;">📋 Comisiones del Mes</h2>
+                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Pólizas que generaron comisión en ${mesNom}.</p>
+                <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+                    <table style="width:100%;border-collapse:collapse;min-width:480px;">
+                        <thead>
+                            <tr style="border-bottom:2px solid var(--separator);">
+                                <th style="text-align:left;padding:8px 8px 8px 0;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Cliente</th>
+                                <th style="text-align:left;padding:8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Plan</th>
+                                <th style="text-align:right;padding:8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Prima</th>
+                                <th style="text-align:center;padding:8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Tasa</th>
+                                <th style="text-align:right;padding:8px 0;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Comisión</th>
+                                <th style="text-align:center;padding:8px 0 8px 4px;font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tablaFilas}</tbody>
+                        ${detallesMes.length>0?`
+                        <tfoot>
+                            <tr style="border-top:2px solid var(--separator);">
+                                <td colspan="4" style="padding:10px 4px 6px;font-size:13px;font-weight:700;color:var(--text-primary);">Total</td>
+                                <td style="padding:10px 0 6px;text-align:right;font-size:15px;font-weight:800;color:var(--accent);">${fmt(r.comInicialMes+r.comRenovMes)}</td>
+                                <td style="padding:10px 0 6px 4px;text-align:center;font-size:13px;font-weight:700;color:var(--text-primary);">${fmtN(r.puntosMes)}</td>
+                            </tr>
+                        </tfoot>`:''}
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" style="margin:0;">
+                <h2 style="font-size:15px;margin-bottom:12px;">📈 Proyección Anual</h2>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="background:var(--surface-2);padding:12px;border-radius:14px;">
+                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Promedio mensual</span><br>
+                        <strong style="font-size:20px;color:var(--text-primary);">${fmt(r.promedioMensual)}</strong>
+                    </div>
+                    <div style="background:var(--surface-2);padding:12px;border-radius:14px;">
+                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Proyección al cierre</span><br>
+                        <strong style="font-size:20px;color:var(--accent);">${fmt(r.proyeccionAnual)}</strong>
+                    </div>
+                </div>
+                <p style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">Basada en ${hist6.filter(h=>h.ini+h.ren>0).length} meses con actividad.</p>
+            </div>
+
+            <div class="card" style="margin:0;">
+                <h2 style="font-size:15px;margin-bottom:12px;">🏅 Acumulados del Año</h2>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--separator);">
+                        <span style="font-size:14px;color:var(--text-secondary);">Ingreso anual total</span>
+                        <strong style="font-size:18px;color:var(--text-primary);">${fmt(r.comYTD)}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:14px;color:var(--text-secondary);">Iniciales YTD</span>
+                        <strong style="font-size:18px;color:var(--success);">${fmt(r.comInicialYTD)}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="grid-column:1/-1;border:2px dashed var(--danger);border-radius:16px;padding:16px;opacity:.75;margin-top:16px;">
+            <p style="font-size:11px;color:var(--danger);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px;text-align:center;">⚙️ MODO DESARROLLADOR</p>
+            <button id="btn-dev-reset" style="width:100%;background:transparent;border:1.5px solid var(--danger);color:var(--danger);border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                🔄 Resetear Perfil Financiero
+            </button>
+        </div>
     </div>`;
 }
 
@@ -745,37 +735,53 @@ function bindUIEvents(r, perfil, sb, userId) {
         bindConfigFormIndices(sb, userId, perfil);
     });
 
-    // Simulador
+    // Simulador actualizado por Forma de Pago
     document.getElementById('btn-simular')?.addEventListener('click', () => {
         const plan  = document.getElementById('sim-plan').value;
         const prima = parseFloat(document.getElementById('sim-prima').value)||0;
-        const cant  = parseInt(document.getElementById('sim-cant').value)||1;
-        if(!prima) return showToast('Ingresa una prima válida.','danger');
+        const fp    = document.getElementById('sim-fp').value;
+        
+        if(!prima) return showToast('Ingresa una prima anualizada válida.','danger');
 
         const esGMM  = GMM_PLANES.includes(plan);
         const tasa   = (esGMM?getTasaGMM(plan,30,false):getTasaVida(plan,'',1))*r.factorD;
-        const comPol = prima*tasa;
-        const comTot = comPol*cant;
-        const puntos = puntosPoliza(plan,prima,esGMM)*cant;
+        const factor = factorPago(fp);
+        
+        const primaRecibo = prima * factor;
+        const comRecibo   = primaRecibo * tasa;
+        const comAnual    = prima * tasa;
+        const puntos      = puntosPoliza(plan, prima, esGMM); // Puntos siempre sobre la anualizada
 
         let bonoExtra = '';
         if(bono.tipo==='training'){
-            const nuevaCom = r.comInicialSem+comTot, nuevosPtos = r.puntosSem+puntos;
-            const fC=Math.max(0,bono.meta.comAcum-nuevaCom), fP=Math.max(0,bono.meta.ptosAcum-nuevosPtos);
+            const nuevaCom = r.comInicialSem + comAnual;
+            const nuevosPtos = r.puntosSem + puntos;
+            const fC = Math.max(0, bono.meta.comAcum - nuevaCom);
+            const fP = Math.max(0, bono.meta.ptosAcum - nuevosPtos);
             bonoExtra = (fC<=0&&fP<=0)
-                ? `<div style="margin-top:8px;color:var(--success);font-weight:600;">✅ Con estas pólizas calificarías al bono del mes ${bono.mc}.</div>`
+                ? `<div style="margin-top:8px;color:var(--success);font-weight:600;">✅ Esta póliza asegura tu bono del mes ${bono.mc}.</div>`
                 : `<div style="margin-top:8px;color:var(--warning);">Aún faltarían ${fmt(fC)} y ${fmtN(fP)} puntos.</div>`;
         }
 
         const res = document.getElementById('sim-resultado');
         res.style.display = 'block';
         res.innerHTML = `
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-                <div style="text-align:center;"><span style="font-size:10px;color:var(--text-secondary);">Por póliza</span><br><strong style="color:var(--accent);">${fmt(comPol)}</strong></div>
-                <div style="text-align:center;"><span style="font-size:10px;color:var(--text-secondary);">Total ${cant} pól.</span><br><strong style="color:var(--accent);font-size:16px;">${fmt(comTot)}</strong></div>
-                <div style="text-align:center;"><span style="font-size:10px;color:var(--text-secondary);">Puntos</span><br><strong style="color:var(--success);">${fmtN(puntos)}</strong></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                <div style="background:var(--surface);border:1px solid var(--separator);padding:8px;border-radius:8px;text-align:center;">
+                    <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Comisión por recibo (${fp})</span><br>
+                    <strong style="color:var(--accent);font-size:16px;">${fmt(comRecibo)}</strong>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--separator);padding:8px;border-radius:8px;text-align:center;">
+                    <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Comisión total anualizada</span><br>
+                    <strong style="color:var(--accent);font-size:16px;">${fmt(comAnual)}</strong>
+                </div>
             </div>
-            <div style="font-size:12px;color:var(--text-secondary);">Tasa: ${(tasa*100).toFixed(1)}%${r.factorD<1?' (90% factor Desarrollo)':''}</div>
+            <div style="text-align:center;margin-bottom:8px;">
+                <span style="font-size:12px;color:var(--text-secondary);">Puntos generados:</span> <strong style="color:var(--success);">${fmtN(puntos)}</strong>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);text-align:center;">
+                Tasa aplicada: ${(tasa*100).toFixed(1)}%${r.factorD<1?' (Factor Desarrollo 90%)':''}
+            </div>
             ${bonoExtra}`;
     });
 
@@ -794,7 +800,7 @@ Comisiones mes: ${fmt(r.comInicialMes)} iniciales + ${fmt(r.comRenovMes)} renova
 Prima meta semestral: ${fmt(r.primaMetaSem)} → Grupo ${bono.grupo||'sin grupo'}
 Bono Vida: ${fmt(bono.montoBI)} | Bono GMM: ${fmt(bono.montoGMM)}`;
 
-        callGemini(`Eres coach de élite de SMNYL. Datos reales del asesor — ${mesNom}:\n${ctx}\n\nGenera 4 estrategias concretas para ESTA SEMANA. Cada una: TÍTULO EN MAYÚSCULAS + 2-3 líneas con productos SMNYL reales (Segubeca, Imagina Ser, Orvi 99, Realiza, Alfa Medical). Sin relleno. Solo las 4 numeradas.`, 'out-tips');
+        callGemini(`Eres coach de élite de SMNYL. Datos reales del asesor — ${mesNom}:\n${ctx}\n\nGenera 4 estrategias concretas para ESTA SEMANA. Cada una: TÍTULO EN MAYÚSCULAS + 2-3 líneas con productos SMNYL reales (Segubeca, Imagina Ser, Orvi 99, Realiza, Vida Mujer, Alfa Medical). Sin relleno. Solo las 4 numeradas.`, 'out-tips');
     });
 
     // Dev reset
