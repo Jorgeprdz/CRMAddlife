@@ -422,22 +422,32 @@ main {
    LAYER 8: iOS WIDGET CARDS (Core Component)
    ───────────────────────────────────────────────────────────────────── */
 
-/* Base card — replaces .card and .glass-widget */
+/* Base card — SOLID fallback first (all browsers incl. Samsung Internet) */
 .card,
 .glass-widget {
-  background: var(--color-surface-glass) !important;
-  -webkit-backdrop-filter: var(--blur-glass) !important;
-  backdrop-filter: var(--blur-glass) !important;
+  background: #ffffff !important;
   border-radius: var(--radius-widget) !important;
-  border: 1px solid var(--border-glass) !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
   box-shadow: var(--shadow-2) !important;
   padding: var(--space-xl) !important;
   position: relative;
+  will-change: transform;
   transition:
     box-shadow var(--dur-normal) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-smooth),
     background var(--dur-normal) var(--ease-smooth),
     border-color var(--dur-normal) var(--ease-smooth) !important;
+}
+
+/* Glass layer — only when browser actually supports backdrop-filter */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .card,
+  .glass-widget {
+    background: var(--color-surface-glass) !important;
+    -webkit-backdrop-filter: var(--blur-glass) !important;
+    backdrop-filter: var(--blur-glass) !important;
+    border-color: var(--border-glass) !important;
+  }
 }
 
 .card::before,
@@ -457,8 +467,14 @@ main {
 
 [data-theme='dark'] .card,
 [data-theme='dark'] .glass-widget {
-  background: rgba(28,28,34,0.82) !important;
-  border-color: rgba(255,255,255,0.08) !important;
+  background: #1c1c1e !important;
+  border-color: rgba(255,255,255,0.10) !important;
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  [data-theme='dark'] .card,
+  [data-theme='dark'] .glass-widget {
+    background: rgba(28,28,34,0.82) !important;
+  }
 }
 [data-theme='dark'] .card::before,
 [data-theme='dark'] .glass-widget::before {
@@ -495,13 +511,12 @@ main {
 }
 
 .widget {
-  background: var(--color-surface-glass) !important;
-  -webkit-backdrop-filter: var(--blur-glass) !important;
-  backdrop-filter: var(--blur-glass) !important;
+  background: #ffffff;
   border-radius: var(--radius-xl);
   padding: var(--space-lg);
   box-shadow: var(--shadow-2);
-  border: 1px solid var(--border-glass) !important;
+  border: 1px solid rgba(0,0,0,0.08);
+  will-change: transform;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1032,13 +1047,12 @@ button[data-val="1"]:active, button[data-val="-1"]:active {
 
 /* Activity counter grid items */
 .ios-widget {
-  background: var(--color-surface-glass) !important;
-  -webkit-backdrop-filter: var(--blur-glass) !important;
-  backdrop-filter: var(--blur-glass) !important;
+  background: #ffffff;
   border-radius: var(--radius-xl);
   padding: var(--space-lg);
   box-shadow: var(--shadow-2);
-  border: 1px solid var(--border-glass);
+  border: 1px solid rgba(0,0,0,0.08);
+  will-change: transform;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
