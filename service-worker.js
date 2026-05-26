@@ -1,14 +1,26 @@
-// service-worker.js — CRM AddLife v5
-// Cache inteligente + auto refresh + invalidación segura
-// Optimizado para Android, Samsung Internet y PWAs
+// service-worker.js — CRM AddLife v6
+// Arquitectura SPA + Offline First estable
+// Compatible con:
+// - Supabase
+// - Samsung Internet
+// - Chrome Android
+// - PWA Install
+// - Router SPA
+// - Módulos dinámicos ESModules
 
-const CACHE_NAME = 'crm-addlife-core-v5';
+const CACHE_NAME = 'crm-addlife-core-v6';
+
+// ═══════════════════════════════════════════════════════════════
+// CORE ASSETS
+// ═══════════════════════════════════════════════════════════════
 
 const CORE_ASSETS = [
+
     '/',
+
     '/index.html',
-    '/styles.css',
     '/manifest.json',
+    '/styles.css',
 
     // Core
     '/app.js',
@@ -16,12 +28,13 @@ const CORE_ASSETS = [
     '/utils.js',
     '/sync.js',
 
-    // Módulos
+    // Modules
+    '/dashboard.js',
+    '/prospeccion.js',
+    '/referidos.js',
+    '/actividad.js',
     '/cartera.js',
-    '/clientes.js',
     '/comisiones.js',
-    '/agenda.js',
-    '/pipeline.js',
 
     // Assets
     '/icons/icon-192.png',
@@ -32,23 +45,33 @@ const CORE_ASSETS = [
 // INSTALL
 // ═══════════════════════════════════════════════════════════════
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', event => {
 
-    console.log('[SW] Installing...');
+    console.log('[SW] Installing v6');
 
     self.skipWaiting();
 
     event.waitUntil(
+
         caches.open(CACHE_NAME)
             .then(cache => {
 
-                console.log('[SW] Caching core assets');
+                console.log(
+                    '[SW] Caching core assets'
+                );
 
-                return cache.addAll(CORE_ASSETS);
+                return cache.addAll(
+                    CORE_ASSETS
+                );
 
             })
             .catch(err => {
-                console.error('[SW] Install error:', err);
+
+                console.error(
+                    '[SW] Install Error',
+                    err
+                );
+
             })
     );
 });
@@ -57,113 +80,211 @@ self.addEventListener('install', (event) => {
 // ACTIVATE
 // ═══════════════════════════════════════════════════════════════
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', event => {
 
-    console.log('[SW] Activating...');
+    console.log('[SW] Activating v6');
 
     event.waitUntil(
 
-        caches.keys().then(async keys => {
+        (async () => {
+
+            // Delete old caches
+            const keys =
+                await caches.keys();
 
             await Promise.all(
 
                 keys.map(key => {
 
-                    if (key !== CACHE_NAME) {
+                    if (
+                        key !== CACHE_NAME
+                    ) {
 
-                        console.log('[SW] Removing old cache:', key);
+                        console.log(
+                            '[SW] Removing old cache:',
+                            key
+                        );
 
-                        return caches.delete(key);
+                        return caches.delete(
+                            key
+                        );
                     }
                 })
             );
 
-            // Fuerza refresh de TODOS los clientes
-            const clients = await self.clients.matchAll();
+            // Take control immediately
+            await self.clients.claim();
+
+            // Force refresh open tabs
+            const clients =
+                await self.clients.matchAll({
+                    type: 'window'
+                });
 
             clients.forEach(client => {
-                client.navigate(client.url);
+
+                client.navigate(
+                    client.url
+                );
+
             });
 
-            return self.clients.claim();
-
-        })
+        })()
     );
 });
 
 // ═══════════════════════════════════════════════════════════════
-// FETCH STRATEGY
+// FETCH
 // ═══════════════════════════════════════════════════════════════
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
 
     const req = event.request;
 
-    // Solo GET
-    if (req.method !== 'GET') return;
-
-    // Ignorar Supabase/Auth/API
-    if (
-        req.url.includes('/auth/') ||
-        req.url.includes('/rest/v1/') ||
-        req.url.includes('supabase') ||
-        req.url.includes('googleapis')
-    ) {
+    // Only GET
+    if (req.method !== 'GET') {
         return;
     }
 
-    // JS MODULES → Network First
+    const url =
+        new URL(req.url);
+
+    // ═══════════════════════════════════════════
+    // NEVER CACHE SUPABASE
+    // ═══════════════════════════════════════════
+
     if (
-        req.url.endsWith('.js') ||
-        req.url.endsWith('.mjs')
+
+        url.hostname.includes('supabase') ||
+
+        url.pathname.includes('/auth/') ||
+
+        url.pathname.includes('/rest/v1/') ||
+
+        url.pathname.includes('/storage/v1/') ||
+
+        url.pathname.includes('/functions/v1/')
+
     ) {
 
         event.respondWith(
-
             fetch(req)
-                .then(res => {
-
-                    const clone = res.clone();
-
-                    caches.open(CACHE_NAME)
-                        .then(cache => {
-                            cache.put(req, clone);
-                        });
-
-                    return res;
-
-                })
-                .catch(() => caches.match(req))
         );
 
         return;
     }
 
-    // HTML → Network First
+    // ═══════════════════════════════════════════
+    // NEVER CACHE GOOGLE AUTH
+    // ═══════════════════════════════════════════
+
     if (
-        req.headers.get('accept')?.includes('text/html')
+
+        url.hostname.includes('google') ||
+
+        url.hostname.includes('gstatic')
+
+    ) {
+
+        event.respondWith(
+            fetch(req)
+        );
+
+        return;
+    }
+
+    // ═══════════════════════════════════════════
+    // JS MODULES → NETWORK FIRST
+    // ═══════════════════════════════════════════
+
+    if (
+
+        req.url.endsWith('.js') ||
+
+        req.url.endsWith('.mjs')
+
     ) {
 
         event.respondWith(
 
             fetch(req)
+
                 .then(res => {
 
-                    const clone = res.clone();
+                    const clone =
+                        res.clone();
 
                     caches.open(CACHE_NAME)
                         .then(cache => {
-                            cache.put(req, clone);
+
+                            cache.put(
+                                req,
+                                clone
+                            );
+
                         });
 
                     return res;
 
                 })
+
+                .catch(async () => {
+
+                    const cached =
+                        await caches.match(req);
+
+                    return cached;
+
+                })
+        );
+
+        return;
+    }
+
+    // ═══════════════════════════════════════════
+    // HTML → NETWORK FIRST
+    // ═══════════════════════════════════════════
+
+    if (
+
+        req.headers
+            .get('accept')
+            ?.includes('text/html')
+
+    ) {
+
+        event.respondWith(
+
+            fetch(req)
+
+                .then(res => {
+
+                    const clone =
+                        res.clone();
+
+                    caches.open(CACHE_NAME)
+                        .then(cache => {
+
+                            cache.put(
+                                req,
+                                clone
+                            );
+
+                        });
+
+                    return res;
+
+                })
+
                 .catch(async () => {
 
                     return (
+
                         await caches.match(req)
-                    ) || caches.match('/index.html');
+
+                    ) || caches.match(
+                        '/index.html'
+                    );
 
                 })
         );
@@ -171,28 +292,49 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // STATIC → Cache First
+    // ═══════════════════════════════════════════
+    // STATIC ASSETS → CACHE FIRST
+    // ═══════════════════════════════════════════
+
     event.respondWith(
 
         caches.match(req)
-            .then(cached => {
 
-                if (cached) return cached;
+            .then(async cached => {
 
-                return fetch(req)
-                    .then(res => {
+                if (cached) {
+                    return cached;
+                }
 
-                        const clone = res.clone();
+                try {
 
-                        caches.open(CACHE_NAME)
-                            .then(cache => {
-                                cache.put(req, clone);
-                            });
+                    const fresh =
+                        await fetch(req);
 
-                        return res;
+                    const clone =
+                        fresh.clone();
 
-                    });
+                    caches.open(CACHE_NAME)
+                        .then(cache => {
 
+                            cache.put(
+                                req,
+                                clone
+                            );
+
+                        });
+
+                    return fresh;
+
+                } catch (err) {
+
+                    console.error(
+                        '[SW] Fetch Error:',
+                        err
+                    );
+
+                    throw err;
+                }
             })
     );
 });
@@ -201,7 +343,7 @@ self.addEventListener('fetch', (event) => {
 // MESSAGE CHANNEL
 // ═══════════════════════════════════════════════════════════════
 
-self.addEventListener('message', (event) => {
+self.addEventListener('message', event => {
 
     if (!event.data) return;
 
@@ -209,7 +351,9 @@ self.addEventListener('message', (event) => {
 
         case 'SKIP_WAITING':
 
-            console.log('[SW] Skip waiting');
+            console.log(
+                '[SW] Skip waiting'
+            );
 
             self.skipWaiting();
 
@@ -217,32 +361,71 @@ self.addEventListener('message', (event) => {
 
         case 'CLEAR_CACHE':
 
-            console.log('[SW] Clearing cache');
+            console.log(
+                '[SW] Clearing cache'
+            );
 
-            caches.keys().then(keys => {
+            caches.keys()
+                .then(keys => {
 
-                keys.forEach(key => {
-                    caches.delete(key);
+                    return Promise.all(
+
+                        keys.map(key => {
+
+                            return caches.delete(
+                                key
+                            );
+
+                        })
+                    );
+
                 });
-
-            });
 
             break;
     }
 });
 
 // ═══════════════════════════════════════════════════════════════
+// ONLINE/OFFLINE
+// ═══════════════════════════════════════════════════════════════
+
+self.addEventListener('online', () => {
+
+    console.log(
+        '[SW] Back online'
+    );
+
+});
+
+self.addEventListener('offline', () => {
+
+    console.log(
+        '[SW] Offline mode'
+    );
+
+});
+
+// ═══════════════════════════════════════════════════════════════
 // ERROR HANDLING
 // ═══════════════════════════════════════════════════════════════
 
-self.addEventListener('error', (event) => {
+self.addEventListener('error', event => {
 
-    console.error('[SW ERROR]', event);
-
-});
-
-self.addEventListener('unhandledrejection', (event) => {
-
-    console.error('[SW PROMISE ERROR]', event.reason);
+    console.error(
+        '[SW ERROR]',
+        event
+    );
 
 });
+
+self.addEventListener(
+    'unhandledrejection',
+    event => {
+
+        console.error(
+            '[SW PROMISE ERROR]',
+            event.reason
+        );
+
+    }
+);

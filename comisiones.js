@@ -1,63 +1,38 @@
-// comisiones.js — Motor Financiero SMNYL v13 STABLE FINAL
-// FIXES:
-// ✅ Perfil editable
-// ✅ LIMRA editable
-// ✅ IGC editable
-// ✅ Botón continuar
-// ✅ Save estable
-// ✅ RLS compatible
-// ✅ Arquitectura crm_data ONLY
-// ✅ Eliminado legacy perfil_asesor
-// ✅ No rompe UI existente
-// ✅ Compatible Android / Samsung / PWA / Termux
-console.log(
-    'COMISIONES V13 REAL'
-);
+// comisiones.js — Motor Financiero SMNYL v13 ESTABLE
+// Arquitectura SPA corregida
+// Sin reloads
+// Compatible con Router AppManager
+// Compatible con Supabase RLS
+// Compatible con Service Worker v5
+
+console.log('COMISIONES V13 REAL');
+
 import { DB } from './db.js';
 import { getSupabase } from './app.js';
 import { showToast } from './utils.js';
 
 // ═══════════════════════════════════════════════════════════════
-// HELPERS
+// CONFIG
 // ═══════════════════════════════════════════════════════════════
 
-function getMesConcurso(fechaConexion) {
-
-    if (!fechaConexion) return 1;
-
-    const hoy = new Date();
-
-    const conn =
-        new Date(
-            fechaConexion + 'T12:00:00'
-        );
-
-    return Math.max(
-        1,
-        Math.floor(
-            (hoy - conn) /
-            (1000 * 60 * 60 * 24 * 30.44)
-        ) + 1
-    );
-}
-
-function getEsquema(fechaConexion) {
-
-    return getMesConcurso(
-        fechaConexion
-    ) <= 12
-        ? 'Desarrollo'
-        : 'Profesional';
-}
+const fmt = n =>
+    new Intl.NumberFormat(
+        'es-MX',
+        {
+            style: 'currency',
+            currency: 'MXN'
+        }
+    ).format(n || 0);
 
 // ═══════════════════════════════════════════════════════════════
-// RENDER
+// RENDER LOADER
 // ═══════════════════════════════════════════════════════════════
 
 export function renderComisiones() {
 
     return `
-    <div id="fin-root"
+    <div
+        id="fin-root"
         style="
             display:flex;
             flex-direction:column;
@@ -65,55 +40,58 @@ export function renderComisiones() {
             justify-content:center;
             min-height:60vh;
             gap:12px;
-        ">
+        "
+    >
 
         <div
             style="
-                width:40px;
-                height:40px;
+                width:42px;
+                height:42px;
+                border-radius:50%;
                 border:3px solid var(--separator);
                 border-top-color:var(--accent);
-                border-radius:50%;
                 animation:spin .8s linear infinite;
-            ">
-        </div>
+            "
+        ></div>
 
         <p
             style="
                 font-size:13px;
                 color:var(--text-secondary);
-            ">
+            "
+        >
             Cargando módulo financiero...
         </p>
 
     </div>
 
     <style>
-        @keyframes spin{
-            to{
-                transform:rotate(360deg)
-            }
+
+    @keyframes spin {
+        to {
+            transform:rotate(360deg);
         }
+    }
+
     </style>
     `;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MAIN
+// INIT
 // ═══════════════════════════════════════════════════════════════
 
 export async function bindComisionesEvents() {
 
     const root =
-        document.getElementById(
-            'fin-root'
-        );
+        document.getElementById('fin-root');
 
     if (!root) return;
 
     try {
 
-        const sb = getSupabase();
+        const sb =
+            window.supabaseClient;
 
         if (!sb) {
             throw new Error(
@@ -121,179 +99,224 @@ export async function bindComisionesEvents() {
             );
         }
 
-        // ─────────────────────────────
-        // AUTH SAFE
-        // ─────────────────────────────
-
         const {
-            data:{session}
-        } = await sb.auth.getSession();
-
-        if (!session) {
-            throw new Error(
-                'Sesión expirada'
-            );
-        }
-
-        const {
-            data:{user}
+            data: { user }
         } = await sb.auth.getUser();
 
         if (!user) {
             throw new Error(
-                'Usuario inválido'
+                'Sesión inválida'
             );
         }
 
-        // ─────────────────────────────
-        // PERFIL
-        // ─────────────────────────────
+        // ═══════════════════════════════════════════
+        // OBTENER PERFIL
+        // ═══════════════════════════════════════════
 
-        const perfiles =
-            await DB.obtenerTodos(
-                'perfil_asesor'
+        let perfil = null;
+
+        try {
+
+            const local =
+                await DB.obtenerTodos(
+                    'perfil_asesor'
+                );
+
+            if (local?.length) {
+                perfil = local[0];
+            }
+
+        } catch (err) {
+
+            console.error(
+                'Error local perfil',
+                err
             );
+        }
 
-        const perfil =
-            perfiles?.[0] || null;
+        try {
 
-        // ─────────────────────────────
-        // NO EXISTE PERFIL
-        // ─────────────────────────────
+            const {
+                data,
+                error
+            } = await sb
+                .from('crm_data')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq(
+                    'coleccion',
+                    'perfil_asesor'
+                )
+                .maybeSingle();
 
-        if (!perfil) {
+            if (!error && data?.datos) {
+
+                perfil = {
+                    ...perfil,
+                    ...data.datos
+                };
+            }
+
+        } catch (err) {
+
+            console.error(
+                'Error remoto perfil',
+                err
+            );
+        }
+
+        // ═══════════════════════════════════════════
+        // SIN PERFIL
+        // ═══════════════════════════════════════════
+
+        if (
+            !perfil ||
+            !perfil.fecha_conexion
+        ) {
 
             root.innerHTML =
-                renderConfigForm();
+                renderConfigScreen();
 
-            bindConfigForm();
+            bindConfigScreen();
 
             return;
         }
 
-        // ─────────────────────────────
-        // PERFIL EXISTENTE
-        // ─────────────────────────────
+        // ═══════════════════════════════════════════
+        // PERFIL EXISTE
+        // ═══════════════════════════════════════════
 
         root.innerHTML =
-            renderPerfilConfigurado(
+            renderFinancialDashboard(
                 perfil
             );
 
-        bindPerfilConfigurado(
+        bindDashboardEvents(
             perfil
         );
 
     } catch (err) {
 
-        console.error(
-            '[COMISIONES]',
-            err
-        );
+        console.error(err);
 
         root.innerHTML = `
         <div
             style="
-                min-height:60vh;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                padding:24px;
-            ">
+                padding:32px;
+                text-align:center;
+            "
+        >
 
             <div
-                class="card"
                 style="
-                    max-width:420px;
-                    width:100%;
-                    text-align:center;
-                ">
-
-                <div
-                    style="
-                        font-size:42px;
-                        margin-bottom:12px;
-                    ">
-                    ⚠️
-                </div>
-
-                <h2>Error</h2>
-
-                <p
-                    style="
-                        color:var(--text-secondary);
-                        line-height:1.6;
-                        font-size:14px;
-                    ">
-                    ${err.message}
-                </p>
-
-                <button
-                    onclick="window.navigateTo('comisiones')"
-                    class="btn-primary"
-                    style="margin-top:18px;">
-
-                    Reintentar
-
-                </button>
-
+                    font-size:48px;
+                    margin-bottom:12px;
+                "
+            >
+                ⚠️
             </div>
+
+            <h2
+                style="
+                    margin-bottom:8px;
+                "
+            >
+                Error cargando módulo
+            </h2>
+
+            <p
+                style="
+                    color:var(--danger);
+                    margin-bottom:18px;
+                "
+            >
+                ${err.message}
+            </p>
+
+            <button
+                class="btn-primary"
+                id="retry-comisiones"
+            >
+                Reintentar
+            </button>
 
         </div>
         `;
+
+        document
+            .getElementById(
+                'retry-comisiones'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+
+                    window.App
+                        .router
+                        .navigate(
+                            'comisiones'
+                        );
+                }
+            );
     }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CONFIG FORM
+// CONFIG SCREEN
 // ═══════════════════════════════════════════════════════════════
 
-function renderConfigForm() {
+function renderConfigScreen() {
 
     return `
     <div
         style="
-            min-height:60vh;
+            min-height:100%;
             display:flex;
             align-items:center;
             justify-content:center;
-            padding:16px;
-        ">
+            padding:18px;
+        "
+    >
 
         <div
             class="card"
             style="
-                max-width:420px;
                 width:100%;
+                max-width:420px;
                 border-left:4px solid var(--accent);
-            ">
+            "
+        >
 
             <div
                 style="
-                    font-size:42px;
+                    font-size:40px;
                     text-align:center;
                     margin-bottom:10px;
-                ">
-                🚀
+                "
+            >
+                📊
             </div>
 
             <h2
                 style="
                     text-align:center;
                     margin-bottom:8px;
-                ">
+                "
+            >
                 Configurar Motor Financiero
             </h2>
 
             <p
                 style="
-                    font-size:13px;
-                    color:var(--text-secondary);
-                    line-height:1.6;
                     text-align:center;
+                    color:var(--text-secondary);
+                    font-size:13px;
                     margin-bottom:22px;
-                ">
-                Ingresa tu fecha de conexión.
+                    line-height:1.5;
+                "
+            >
+                Configura tu fecha de conexión
+                y tus índices actuales.
             </p>
 
             <div
@@ -301,36 +324,94 @@ function renderConfigForm() {
                     display:flex;
                     flex-direction:column;
                     gap:16px;
-                ">
+                "
+            >
 
                 <div>
 
                     <label
                         style="
                             font-size:11px;
-                            font-weight:600;
-                            color:var(--text-secondary);
+                            font-weight:700;
                             text-transform:uppercase;
-                        ">
+                            color:var(--text-secondary);
+                        "
+                    >
                         Fecha de conexión
                     </label>
 
                     <input
                         type="date"
-                        id="cfg-fec"
+                        id="cfg-fecha"
                         style="
                             width:100%;
                             margin-top:6px;
-                        ">
+                        "
+                    />
+
+                </div>
+
+                <div>
+
+                    <label
+                        style="
+                            font-size:11px;
+                            font-weight:700;
+                            text-transform:uppercase;
+                            color:var(--text-secondary);
+                        "
+                    >
+                        LIMRA %
+                    </label>
+
+                    <input
+                        type="number"
+                        id="cfg-limra"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value="75.5"
+                        style="
+                            width:100%;
+                            margin-top:6px;
+                        "
+                    />
+
+                </div>
+
+                <div>
+
+                    <label
+                        style="
+                            font-size:11px;
+                            font-weight:700;
+                            text-transform:uppercase;
+                            color:var(--text-secondary);
+                        "
+                    >
+                        IGC %
+                    </label>
+
+                    <input
+                        type="number"
+                        id="cfg-igc"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value="91"
+                        style="
+                            width:100%;
+                            margin-top:6px;
+                        "
+                    />
 
                 </div>
 
                 <button
-                    id="btn-save-cfg"
-                    class="btn-primary">
-
+                    id="btn-save-config"
+                    class="btn-primary"
+                >
                     🚀 Iniciar Motor Financiero
-
                 </button>
 
             </div>
@@ -342,106 +423,394 @@ function renderConfigForm() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// PERFIL CONFIGURADO
+// CONFIG EVENTS
 // ═══════════════════════════════════════════════════════════════
 
-function renderPerfilConfigurado(perfil) {
+function bindConfigScreen() {
 
-    const mesConcurso =
-        getMesConcurso(
-            perfil.fecha_conexion
+    const btn =
+        document.getElementById(
+            'btn-save-config'
         );
+
+    btn?.addEventListener(
+        'click',
+        async () => {
+
+            try {
+
+                btn.disabled = true;
+
+                const fecha =
+                    document.getElementById(
+                        'cfg-fecha'
+                    ).value;
+
+                const limra =
+                    parseFloat(
+                        document.getElementById(
+                            'cfg-limra'
+                        ).value
+                    ) || 75.5;
+
+                const igc =
+                    parseFloat(
+                        document.getElementById(
+                            'cfg-igc'
+                        ).value
+                    ) || 91;
+
+                if (!fecha) {
+
+                    showToast(
+                        'Selecciona fecha',
+                        'danger'
+                    );
+
+                    btn.disabled = false;
+
+                    return;
+                }
+
+                const sb =
+                    window.supabaseClient;
+
+                const {
+                    data: { user }
+                } = await sb.auth.getUser();
+
+                const payload = {
+                    fecha_conexion:
+                        fecha,
+                    limra,
+                    igc,
+                    esquema:
+                        'PROFESIONAL'
+                };
+
+                // ═══════════════════════════════
+                // UPSERT
+                // ═══════════════════════════════
+
+                const {
+                    error
+                } = await sb
+                    .from('crm_data')
+                    .upsert(
+                        {
+                            id:
+                                'perfil_' +
+                                user.id,
+
+                            user_id:
+                                user.id,
+
+                            coleccion:
+                                'perfil_asesor',
+
+                            datos:
+                                payload
+                        },
+                        {
+                            onConflict:
+                                'id'
+                        }
+                    );
+
+                if (error) {
+                    throw error;
+                }
+
+                // ═══════════════════════════════
+                // CACHE LOCAL
+                // ═══════════════════════════════
+
+                try {
+
+                    await DB.guardar(
+                        'perfil_asesor',
+                        {
+                            id:
+                                'perfil_' +
+                                user.id,
+
+                            ...payload
+                        }
+                    );
+
+                } catch (err) {
+
+                    console.warn(
+                        'No se pudo guardar local',
+                        err
+                    );
+                }
+
+                showToast(
+                    '✅ Perfil guardado',
+                    'success'
+                );
+
+                setTimeout(() => {
+
+                    window.App
+                        .router
+                        .navigate(
+                            'comisiones'
+                        );
+
+                }, 400);
+
+            } catch (err) {
+
+                console.error(err);
+
+                showToast(
+                    'Error al guardar perfil',
+                    'danger'
+                );
+
+                btn.disabled = false;
+            }
+        }
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+
+function renderFinancialDashboard(
+    perfil
+) {
 
     return `
     <div
         style="
-            padding:24px;
-            width:100%;
-            max-width:900px;
-        ">
+            padding:18px;
+            display:flex;
+            flex-direction:column;
+            gap:18px;
+        "
+    >
 
-        <div class="card">
+        <div
+            class="card"
+        >
 
             <div
                 style="
                     display:flex;
                     justify-content:space-between;
                     align-items:center;
-                    gap:16px;
+                    gap:12px;
                     flex-wrap:wrap;
-                ">
+                "
+            >
 
                 <div>
 
-                    <h2
-                        style="
-                            margin:0;
-                            font-size:24px;
-                            font-weight:700;
-                        ">
-                        💰 Motor Financiero
-                    </h2>
-
-                    <p
-                        style="
-                            margin-top:6px;
-                            color:var(--text-secondary);
-                            font-size:13px;
-                        ">
-                        Perfil configurado correctamente
-                    </p>
-
-                </div>
-
-                <div
-                    style="
-                        background:var(--surface-2);
-                        border-radius:16px;
-                        padding:14px 18px;
-                        min-width:220px;
-                    ">
-
                     <div
                         style="
-                            font-size:11px;
+                            font-size:13px;
                             color:var(--text-secondary);
-                            text-transform:uppercase;
-                            letter-spacing:.5px;
-                        ">
-                        Esquema
+                            margin-bottom:4px;
+                        "
+                    >
+                        Motor Financiero
                     </div>
 
                     <div
                         style="
-                            font-size:20px;
+                            font-size:24px;
                             font-weight:700;
-                            margin-top:4px;
-                        ">
-                        ${perfil.esquema}
+                        "
+                    >
+                        Profesional
+                    </div>
+
+                </div>
+
+                <button
+                    class="btn-secondary"
+                    id="btn-edit-profile"
+                >
+                    ✏️ Editar Perfil
+                </button>
+
+            </div>
+
+        </div>
+
+        <div
+            class="card"
+        >
+
+            <div
+                style="
+                    display:grid;
+                    grid-template-columns:
+                    repeat(auto-fit,minmax(160px,1fr));
+                    gap:14px;
+                "
+            >
+
+                <div>
+
+                    <div
+                        style="
+                            font-size:12px;
+                            color:var(--text-secondary);
+                            margin-bottom:4px;
+                        "
+                    >
+                        Fecha conexión
+                    </div>
+
+                    <div
+                        style="
+                            font-size:18px;
+                            font-weight:700;
+                        "
+                    >
+                        ${perfil.fecha_conexion}
+                    </div>
+
+                </div>
+
+                <div>
+
+                    <div
+                        style="
+                            font-size:12px;
+                            color:var(--text-secondary);
+                            margin-bottom:4px;
+                        "
+                    >
+                        LIMRA
+                    </div>
+
+                    <div
+                        style="
+                            font-size:18px;
+                            font-weight:700;
+                        "
+                    >
+                        ${perfil.limra || 75.5}%
+                    </div>
+
+                </div>
+
+                <div>
+
+                    <div
+                        style="
+                            font-size:12px;
+                            color:var(--text-secondary);
+                            margin-bottom:4px;
+                        "
+                    >
+                        IGC
+                    </div>
+
+                    <div
+                        style="
+                            font-size:18px;
+                            font-weight:700;
+                        "
+                    >
+                        ${perfil.igc || 91}%
                     </div>
 
                 </div>
 
             </div>
 
+        </div>
+
+    </div>
+    `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD EVENTS
+// ═══════════════════════════════════════════════════════════════
+
+function bindDashboardEvents(
+    perfil
+) {
+
+    document
+        .getElementById(
+            'btn-edit-profile'
+        )
+        ?.addEventListener(
+            'click',
+            () => {
+
+                const root =
+                    document.getElementById(
+                        'fin-root'
+                    );
+
+                root.innerHTML =
+                    renderEditScreen(
+                        perfil
+                    );
+
+                bindEditEvents(
+                    perfil
+                );
+            }
+        );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EDIT SCREEN
+// ═══════════════════════════════════════════════════════════════
+
+function renderEditScreen(
+    perfil
+) {
+
+    return `
+    <div
+        style="
+            padding:18px;
+            display:flex;
+            justify-content:center;
+        "
+    >
+
+        <div
+            class="card"
+            style="
+                width:100%;
+                max-width:420px;
+            "
+        >
+
+            <h2
+                style="
+                    margin-bottom:18px;
+                "
+            >
+                Editar Perfil
+            </h2>
+
             <div
                 style="
-                    margin-top:22px;
-                    display:grid;
-                    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+                    display:flex;
+                    flex-direction:column;
                     gap:16px;
-                ">
+                "
+            >
 
-                <div class="card">
+                <div>
 
-                    <div
-                        style="
-                            font-size:11px;
-                            color:var(--text-secondary);
-                            text-transform:uppercase;
-                        ">
+                    <label>
                         Fecha conexión
-                    </div>
+                    </label>
 
                     <input
                         type="date"
@@ -449,128 +818,62 @@ function renderPerfilConfigurado(perfil) {
                         value="${perfil.fecha_conexion}"
                         style="
                             width:100%;
-                            margin-top:10px;
-                        ">
+                            margin-top:6px;
+                        "
+                    />
 
                 </div>
 
-                <div class="card">
+                <div>
 
-                    <div
-                        style="
-                            font-size:11px;
-                            color:var(--text-secondary);
-                            text-transform:uppercase;
-                        ">
+                    <label>
                         LIMRA %
-                    </div>
+                    </label>
 
                     <input
                         type="number"
                         id="edit-limra"
-                        value="${perfil.limra || 75.5}"
                         step="0.1"
-                        min="0"
-                        max="100"
+                        value="${perfil.limra || 75.5}"
                         style="
                             width:100%;
-                            margin-top:10px;
-                        ">
+                            margin-top:6px;
+                        "
+                    />
 
                 </div>
 
-                <div class="card">
+                <div>
 
-                    <div
-                        style="
-                            font-size:11px;
-                            color:var(--text-secondary);
-                            text-transform:uppercase;
-                        ">
+                    <label>
                         IGC %
-                    </div>
+                    </label>
 
                     <input
                         type="number"
                         id="edit-igc"
-                        value="${perfil.igc || 91}"
                         step="0.1"
-                        min="0"
-                        max="100"
+                        value="${perfil.igc || 91}"
                         style="
                             width:100%;
-                            margin-top:10px;
-                        ">
+                            margin-top:6px;
+                        "
+                    />
 
                 </div>
-
-            </div>
-
-            <div
-                style="
-                    margin-top:20px;
-                    background:var(--surface-2);
-                    border-radius:16px;
-                    padding:16px;
-                ">
-
-                <div
-                    style="
-                        display:flex;
-                        justify-content:space-between;
-                        align-items:center;
-                        flex-wrap:wrap;
-                        gap:12px;
-                    ">
-
-                    <div>
-
-                        <div
-                            style="
-                                font-size:12px;
-                                color:var(--text-secondary);
-                            ">
-                            Mes concurso
-                        </div>
-
-                        <div
-                            style="
-                                font-size:24px;
-                                font-weight:700;
-                            ">
-                            ${mesConcurso}
-                        </div>
-
-                    </div>
-
-                    <button
-                        id="btn-save-profile"
-                        class="btn-primary">
-
-                        💾 Guardar Cambios
-
-                    </button>
-
-                </div>
-
-            </div>
-
-            <div
-                style="
-                    display:flex;
-                    justify-content:flex-end;
-                    margin-top:20px;
-                ">
 
                 <button
-                    id="btn-continuar"
+                    id="btn-save-edit"
                     class="btn-primary"
-                    style="
-                        min-width:220px;
-                    ">
+                >
+                    💾 Guardar Cambios
+                </button>
 
-                    ➜ Continuar al Dashboard
-
+                <button
+                    id="btn-back-dashboard"
+                    class="btn-secondary"
+                >
+                    ← Volver
                 </button>
 
             </div>
@@ -582,120 +885,96 @@ function renderPerfilConfigurado(perfil) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SAVE PERFIL
+// EDIT EVENTS
 // ═══════════════════════════════════════════════════════════════
 
-function bindPerfilConfigurado(perfil) {
+function bindEditEvents(
+    perfil
+) {
 
     document
         .getElementById(
-            'btn-save-profile'
+            'btn-save-edit'
         )
         ?.addEventListener(
             'click',
             async () => {
 
-                const btn =
-                    document.getElementById(
-                        'btn-save-profile'
-                    );
-
                 try {
 
-                    btn.disabled = true;
+                    const fecha =
+                        document.getElementById(
+                            'edit-fecha'
+                        ).value;
 
-                    btn.innerHTML =
-                        'Guardando...';
+                    const limra =
+                        parseFloat(
+                            document.getElementById(
+                                'edit-limra'
+                            ).value
+                        );
+
+                    const igc =
+                        parseFloat(
+                            document.getElementById(
+                                'edit-igc'
+                            ).value
+                        );
 
                     const sb =
-                        getSupabase();
+                        window.supabaseClient;
 
                     const {
-                        data:{user}
-                    } =
-                        await sb.auth.getUser();
-
-                    if (!user) {
-                        throw new Error(
-                            'Usuario inválido'
-                        );
-                    }
-
-                    const nuevoPerfil = {
-
-                        id:
-                            'perfil_' +
-                            user.id,
-
-                        fecha_conexion:
-                            document
-                                .getElementById(
-                                    'edit-fecha'
-                                )
-                                .value,
-
-                        esquema:
-                            getEsquema(
-                                document
-                                    .getElementById(
-                                        'edit-fecha'
-                                    )
-                                    .value
-                            ),
-
-                        limra:
-                            parseFloat(
-                                document
-                                    .getElementById(
-                                        'edit-limra'
-                                    )
-                                    .value
-                            ) || 75.5,
-
-                        igc:
-                            parseFloat(
-                                document
-                                    .getElementById(
-                                        'edit-igc'
-                                    )
-                                    .value
-                            ) || 91
-                    };
+                        data: { user }
+                    } = await sb.auth.getUser();
 
                     const payload = {
-
-                        id:
-                            nuevoPerfil.id,
-
-                        user_id:
-                            user.id,
-
-                        coleccion:
-                            'perfil_asesor',
-
-                        datos:
-                            nuevoPerfil
+                        fecha_conexion:
+                            fecha,
+                        limra,
+                        igc,
+                        esquema:
+                            'PROFESIONAL'
                     };
 
-                    const { error } =
-                        await sb
-                            .from('crm_data')
-                            .upsert(
-                                payload,
-                                {
-                                    onConflict:'id'
-                                }
-                            );
+                    const {
+                        error
+                    } = await sb
+                        .from('crm_data')
+                        .upsert(
+                            {
+                                id:
+                                    'perfil_' +
+                                    user.id,
+
+                                user_id:
+                                    user.id,
+
+                                coleccion:
+                                    'perfil_asesor',
+
+                                datos:
+                                    payload
+                            },
+                            {
+                                onConflict:
+                                    'id'
+                            }
+                        );
 
                     if (error) {
                         throw error;
                     }
 
-                    localStorage.setItem(
-                        'shadow_perfil_asesor',
-                        JSON.stringify([
-                            payload
-                        ])
+                    await DB.guardar(
+                        'perfil_asesor',
+                        {
+                            id:
+                                'perfil_' +
+                                user.id,
+
+                            ...payload
+                        }
                     );
 
                     showToast(
@@ -705,188 +984,39 @@ function bindPerfilConfigurado(perfil) {
 
                     setTimeout(() => {
 
-                        window.navigateTo(
-                            'comisiones'
-                        );
+                        window.App
+                            .router
+                            .navigate(
+                                'comisiones'
+                            );
 
-                    }, 400);
+                    }, 350);
 
                 } catch (err) {
 
                     console.error(err);
 
                     showToast(
-                        err.message,
+                        'Error guardando',
                         'danger'
                     );
-
-                } finally {
-
-                    btn.disabled = false;
-
-                    btn.innerHTML =
-                        '💾 Guardar Cambios';
                 }
             }
         );
 
-    // ─────────────────────────────
-    // CONTINUAR
-    // ─────────────────────────────
-
     document
         .getElementById(
-            'btn-continuar'
+            'btn-back-dashboard'
         )
         ?.addEventListener(
             'click',
             () => {
 
-                window.navigateTo(
-                    'dashboard'
-                );
-            }
-        );
-}
-
-// ═══════════════════════════════════════════════════════════════
-// SAVE CONFIG INICIAL
-// ═══════════════════════════════════════════════════════════════
-
-function bindConfigForm() {
-
-    document
-        .getElementById(
-            'btn-save-cfg'
-        )
-        ?.addEventListener(
-            'click',
-            async () => {
-
-                const btn =
-                    document.getElementById(
-                        'btn-save-cfg'
+                window.App
+                    .router
+                    .navigate(
+                        'comisiones'
                     );
-
-                try {
-
-                    btn.disabled = true;
-
-                    btn.innerHTML =
-                        'Guardando...';
-
-                    const sb =
-                        getSupabase();
-
-                    const {
-                        data:{user}
-                    } =
-                        await sb.auth.getUser();
-
-                    if (!user) {
-                        throw new Error(
-                            'Usuario inválido'
-                        );
-                    }
-
-                    const fecha =
-                        document
-                            .getElementById(
-                                'cfg-fec'
-                            )
-                            .value;
-
-                    if (!fecha) {
-
-                        throw new Error(
-                            'Fecha requerida'
-                        );
-                    }
-
-                    const perfil = {
-
-                        id:
-                            'perfil_' +
-                            user.id,
-
-                        fecha_conexion:
-                            fecha,
-
-                        esquema:
-                            getEsquema(
-                                fecha
-                            ),
-
-                        limra:75.5,
-
-                        igc:91
-                    };
-
-                    const payload = {
-
-                        id:
-                            perfil.id,
-
-                        user_id:
-                            user.id,
-
-                        coleccion:
-                            'perfil_asesor',
-
-                        datos:
-                            perfil
-                    };
-
-                    const { error } =
-                        await sb
-                            .from('crm_data')
-                            .upsert(
-                                payload,
-                                {
-                                    onConflict:'id'
-                                }
-                            );
-
-                    if (error) {
-                        throw error;
-                    }
-
-                    localStorage.setItem(
-                        'shadow_perfil_asesor',
-                        JSON.stringify([
-                            payload
-                        ])
-                    );
-
-                    showToast(
-                        '✅ Perfil guardado',
-                        'success'
-                    );
-
-                    setTimeout(() => {
-
-                        window.navigateTo(
-                            'comisiones'
-                        );
-
-                    }, 500);
-
-                } catch (err) {
-
-                    console.error(err);
-
-                    showToast(
-                        err.message,
-                        'danger'
-                    );
-
-                } finally {
-
-                    btn.disabled = false;
-
-                    btn.innerHTML =
-                        '🚀 Iniciar Motor Financiero';
-                }
             }
         );
 }
