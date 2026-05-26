@@ -1,4 +1,4 @@
-// service-worker.js — CRM AddLife v7
+// service-worker.js — CRM AddLife v9
 // Arquitectura SPA + Offline First estable
 // Compatible con:
 // - Supabase
@@ -8,7 +8,7 @@
 // - Router SPA
 // - Módulos dinámicos ESModules
 
-const CACHE_NAME = 'crm-addlife-core-v8';
+const CACHE_NAME = 'crm-addlife-core-v9';
 
 // ═══════════════════════════════════════════════════════════════
 // CORE ASSETS
@@ -44,13 +44,13 @@ const CORE_ASSETS = [
 // ═══════════════════════════════════════════════════════════════
 
 self.addEventListener('install', event => {
-    console.log('[SW] Installing v7 - Forzando actualización de módulos');
+    console.log('[SW] Installing v9 - Forzando actualización de módulos');
     self.skipWaiting();
 
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                console.log('[SW] Caching core assets v7');
+                console.log('[SW] Caching core assets v9');
                 return cache.addAll(CORE_ASSETS);
             })
             .catch(err => {
@@ -64,7 +64,7 @@ self.addEventListener('install', event => {
 // ═══════════════════════════════════════════════════════════════
 
 self.addEventListener('activate', event => {
-    console.log('[SW] Activating v7 - Limpiando cachés viejas');
+    console.log('[SW] Activating v9 - Limpiando cachés viejas');
 
     event.waitUntil(
         (async () => {
