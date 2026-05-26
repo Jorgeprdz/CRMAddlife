@@ -2,6 +2,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" ...>
+    <title>CRM Addlife Professional</title>
+
+    <!-- KILL SW — quitar después de confirmar fix -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(r => r.unregister());
+        });
+        caches.keys().then(keys => {
+          keys.forEach(k => caches.delete(k));
+        });
+      }
+    </script>
+
+    <link rel="stylesheet" href="styles.css">
+    ...
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CRM Addlife Professional</title>
     <link rel="stylesheet" href="styles.css">
