@@ -8,7 +8,7 @@
 // - Router SPA
 // - Módulos dinámicos ESModules
 
-const CACHE_NAME = 'crm-addlife-core-v7';
+const CACHE_NAME = 'crm-addlife-core-v8';
 
 // ═══════════════════════════════════════════════════════════════
 // CORE ASSETS
@@ -24,7 +24,7 @@ const CORE_ASSETS = [
     '/app.js',
     '/db.js',
     '/utils.js',
-    '/sync.js',
+
 
     // Modules
     '/dashboard.js',
@@ -35,8 +35,8 @@ const CORE_ASSETS = [
     '/comisiones.js',
 
     // Assets
-    '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    '/icon-192.png',
+    '/icon-512.png'
 ];
 
 // ═══════════════════════════════════════════════════════════════
