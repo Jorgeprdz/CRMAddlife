@@ -1,21 +1,25 @@
-// comisiones.js — Motor Financiero SMNYL v13 HOTFIX
-// FIX:
-// - elimina import roto getSupabase
-// - compatible con app.js v6
-// - compatible con router SPA
-// - compatible con Supabase global
+// comisiones.js — FULL SAFE RECOVERY BUILD v14
+// REBUILD COMPLETO
+// Compatible con:
+// - app.js actual
+// - Router SPA
+// - Supabase global
+// - Samsung Internet
+// - Chrome Android
+// - Service Worker v6
 
-console.log('COMISIONES V13 HOTFIX');
+console.log('COMISIONES V14 SAFE');
 
 import { DB } from './db.js';
 import { showToast } from './utils.js';
 
 // ═══════════════════════════════════════════════════════════════
-// FORMATTERS
+// HELPERS
 // ═══════════════════════════════════════════════════════════════
 
-const fmt = n =>
-    new Intl.NumberFormat(
+const fmtMoney = n => {
+
+    return new Intl.NumberFormat(
         'es-MX',
         {
             style: 'currency',
@@ -23,8 +27,45 @@ const fmt = n =>
         }
     ).format(n || 0);
 
+};
+
+function getSupabaseClient() {
+
+    if (!window.supabaseClient) {
+
+        throw new Error(
+            'Supabase client no inicializado'
+        );
+    }
+
+    return window.supabaseClient;
+}
+
+async function getCurrentUser() {
+
+    const sb = getSupabaseClient();
+
+    const {
+        data,
+        error
+    } = await sb.auth.getUser();
+
+    if (error) {
+        throw error;
+    }
+
+    if (!data?.user) {
+
+        throw new Error(
+            'Sesión inválida'
+        );
+    }
+
+    return data.user;
+}
+
 // ═══════════════════════════════════════════════════════════════
-// RENDER
+// MAIN RENDER
 // ═══════════════════════════════════════════════════════════════
 
 export function renderComisiones() {
@@ -33,43 +74,55 @@ export function renderComisiones() {
     <div
         id="fin-root"
         style="
+            min-height:100%;
             display:flex;
-            flex-direction:column;
             align-items:center;
             justify-content:center;
-            min-height:60vh;
-            gap:12px;
+            padding:24px;
         "
     >
 
         <div
             style="
-                width:42px;
-                height:42px;
-                border-radius:50%;
-                border:3px solid var(--separator);
-                border-top-color:var(--accent);
-                animation:spin .8s linear infinite;
-            "
-        ></div>
-
-        <p
-            style="
-                font-size:13px;
-                color:var(--text-secondary);
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                gap:16px;
             "
         >
-            Cargando módulo financiero...
-        </p>
+
+            <div
+                style="
+                    width:42px;
+                    height:42px;
+                    border-radius:50%;
+                    border:3px solid var(--separator);
+                    border-top-color:var(--accent);
+                    animation:spin .8s linear infinite;
+                "
+            ></div>
+
+            <div
+                style="
+                    font-size:13px;
+                    color:var(--text-secondary);
+                "
+            >
+                Cargando módulo financiero...
+            </div>
+
+        </div>
 
     </div>
 
     <style>
 
     @keyframes spin {
+
         to {
             transform:rotate(360deg);
         }
+
     }
 
     </style>
@@ -77,124 +130,82 @@ export function renderComisiones() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// INIT
+// ENTRYPOINT
 // ═══════════════════════════════════════════════════════════════
 
 export async function bindComisionesEvents() {
 
-    const root =
-        document.getElementById('fin-root');
+    console.log(
+        '[COMISIONES] INIT'
+    );
 
-    if (!root) return;
+    const root =
+        document.getElementById(
+            'fin-root'
+        );
+
+    if (!root) {
+
+        console.error(
+            '[COMISIONES] ROOT NOT FOUND'
+        );
+
+        return;
+    }
 
     try {
 
-        const sb =
-            window.supabaseClient;
+        const user =
+            await getCurrentUser();
 
-        if (!sb) {
-            throw new Error(
-                'Supabase no inicializado'
+        console.log(
+            '[COMISIONES] USER OK',
+            user.id
+        );
+
+        const perfil =
+            await loadPerfil(
+                user.id
             );
-        }
 
-        const {
-            data: { user }
-        } = await sb.auth.getUser();
+        console.log(
+            '[COMISIONES] PERFIL',
+            perfil
+        );
 
-        if (!user) {
-            throw new Error(
-                'Sesión inválida'
+        if (!perfil) {
+
+            console.log(
+                '[COMISIONES] SHOW CONFIG'
             );
-        }
-
-        let perfil = null;
-
-        // ═══════════════════════════════════════
-        // LOCAL
-        // ═══════════════════════════════════════
-
-        try {
-
-            const local =
-                await DB.obtenerTodos(
-                    'perfil_asesor'
-                );
-
-            if (local?.length) {
-                perfil = local[0];
-            }
-
-        } catch (err) {
-
-            console.warn(err);
-        }
-
-        // ═══════════════════════════════════════
-        // REMOTO
-        // ═══════════════════════════════════════
-
-        try {
-
-            const {
-                data,
-                error
-            } = await sb
-                .from('crm_data')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq(
-                    'coleccion',
-                    'perfil_asesor'
-                )
-                .maybeSingle();
-
-            if (!error && data?.datos) {
-
-                perfil = {
-                    ...perfil,
-                    ...data.datos
-                };
-            }
-
-        } catch (err) {
-
-            console.warn(err);
-        }
-
-        // ═══════════════════════════════════════
-        // CONFIG
-        // ═══════════════════════════════════════
-
-        if (
-            !perfil ||
-            !perfil.fecha_conexion
-        ) {
 
             root.innerHTML =
-                renderConfigScreen();
+                renderSetupScreen();
 
-            bindConfigEvents();
+            bindSetupEvents();
 
             return;
         }
 
-        // ═══════════════════════════════════════
-        // DASHBOARD
-        // ═══════════════════════════════════════
+        console.log(
+            '[COMISIONES] SHOW DASHBOARD'
+        );
 
         root.innerHTML =
             renderDashboard(
                 perfil
             );
 
-        bindDashboard(
+        bindDashboardEvents(
             perfil
         );
 
     } catch (err) {
 
-        console.error(err);
+        console.error(
+            '[COMISIONES] FATAL',
+            err
+        );
 
         root.innerHTML = `
         <div
@@ -206,23 +217,32 @@ export async function bindComisionesEvents() {
 
             <div
                 style="
-                    font-size:48px;
-                    margin-bottom:12px;
+                    font-size:56px;
+                    margin-bottom:16px;
                 "
             >
                 ⚠️
             </div>
 
-            <h2>Error cargando módulo</h2>
+            <div
+                style="
+                    font-size:20px;
+                    font-weight:700;
+                    margin-bottom:8px;
+                "
+            >
+                Error cargando módulo
+            </div>
 
-            <p
+            <div
                 style="
                     color:var(--danger);
-                    margin-top:8px;
+                    font-size:14px;
+                    line-height:1.5;
                 "
             >
                 ${err.message}
-            </p>
+            </div>
 
         </div>
         `;
@@ -230,19 +250,72 @@ export async function bindComisionesEvents() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CONFIG
+// LOAD PERFIL
 // ═══════════════════════════════════════════════════════════════
 
-function renderConfigScreen() {
+async function loadPerfil(userId) {
+
+    try {
+
+        const sb =
+            getSupabaseClient();
+
+        const {
+            data,
+            error
+        } = await sb
+            .from('crm_data')
+            .select('*')
+            .eq('user_id', userId)
+            .eq(
+                'coleccion',
+                'perfil_asesor'
+            )
+            .maybeSingle();
+
+        if (error) {
+
+            console.error(
+                '[LOAD PERFIL]',
+                error
+            );
+
+            return null;
+        }
+
+        if (!data) {
+            return null;
+        }
+
+        return {
+
+            id: data.id,
+
+            ...data.datos
+        };
+
+    } catch (err) {
+
+        console.error(err);
+
+        return null;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETUP SCREEN
+// ═══════════════════════════════════════════════════════════════
+
+function renderSetupScreen() {
 
     return `
     <div
         style="
-            min-height:100%;
+            width:100%;
             display:flex;
             align-items:center;
             justify-content:center;
-            padding:18px;
+            padding:20px;
         "
     >
 
@@ -250,32 +323,62 @@ function renderConfigScreen() {
             class="card"
             style="
                 width:100%;
-                max-width:420px;
+                max-width:460px;
                 border-left:4px solid var(--accent);
             "
         >
 
-            <h2
+            <div
                 style="
-                    margin-bottom:18px;
+                    font-size:30px;
                     text-align:center;
+                    margin-bottom:10px;
+                "
+            >
+                🧩
+            </div>
+
+            <div
+                style="
+                    text-align:center;
+                    font-size:22px;
+                    font-weight:700;
+                    margin-bottom:8px;
                 "
             >
                 Configurar Motor Financiero
-            </h2>
+            </div>
+
+            <div
+                style="
+                    text-align:center;
+                    font-size:13px;
+                    color:var(--text-secondary);
+                    line-height:1.5;
+                    margin-bottom:24px;
+                "
+            >
+                Configura tu esquema profesional
+            </div>
 
             <div
                 style="
                     display:flex;
                     flex-direction:column;
-                    gap:16px;
+                    gap:18px;
                 "
             >
 
                 <div>
 
-                    <label>
-                        Fecha conexión
+                    <label
+                        style="
+                            font-size:12px;
+                            font-weight:600;
+                            color:var(--text-secondary);
+                        "
+                    >
+                        Fecha de conexión
                     </label>
 
                     <input
@@ -291,7 +394,13 @@ function renderConfigScreen() {
 
                 <div>
 
-                    <label>
+                    <label
+                        style="
+                            font-size:12px;
+                            font-weight:600;
+                            color:var(--text-secondary);
+                        "
+                    >
                         LIMRA %
                     </label>
 
@@ -300,6 +409,8 @@ function renderConfigScreen() {
                         id="cfg-limra"
                         value="75.5"
                         step="0.1"
+                        min="0"
+                        max="100"
                         style="
                             width:100%;
                             margin-top:6px;
@@ -310,7 +421,13 @@ function renderConfigScreen() {
 
                 <div>
 
-                    <label>
+                    <label
+                        style="
+                            font-size:12px;
+                            font-weight:600;
+                            color:var(--text-secondary);
+                        "
+                    >
                         IGC %
                     </label>
 
@@ -319,6 +436,8 @@ function renderConfigScreen() {
                         id="cfg-igc"
                         value="91"
                         step="0.1"
+                        min="0"
+                        max="100"
                         style="
                             width:100%;
                             margin-top:6px;
@@ -328,7 +447,7 @@ function renderConfigScreen() {
                 </div>
 
                 <button
-                    id="btn-save-config"
+                    id="btn-save-profile"
                     class="btn-primary"
                 >
                     🚀 Iniciar Motor Financiero
@@ -343,138 +462,173 @@ function renderConfigScreen() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CONFIG EVENTS
+// SETUP EVENTS
 // ═══════════════════════════════════════════════════════════════
 
-function bindConfigEvents() {
+function bindSetupEvents() {
 
-    document
-        .getElementById(
-            'btn-save-config'
-        )
-        ?.addEventListener(
-            'click',
-            async () => {
+    const btn =
+        document.getElementById(
+            'btn-save-profile'
+        );
+
+    if (!btn) return;
+
+    btn.addEventListener(
+        'click',
+        async () => {
+
+            try {
+
+                btn.disabled = true;
+
+                const fecha =
+                    document.getElementById(
+                        'cfg-fecha'
+                    ).value;
+
+                const limra =
+                    parseFloat(
+                        document.getElementById(
+                            'cfg-limra'
+                        ).value
+                    ) || 75.5;
+
+                const igc =
+                    parseFloat(
+                        document.getElementById(
+                            'cfg-igc'
+                        ).value
+                    ) || 91;
+
+                if (!fecha) {
+
+                    showToast(
+                        'Selecciona fecha',
+                        'danger'
+                    );
+
+                    btn.disabled = false;
+
+                    return;
+                }
+
+                const user =
+                    await getCurrentUser();
+
+                const sb =
+                    getSupabaseClient();
+
+                const payload = {
+
+                    id:
+                        'perfil_' +
+                        user.id,
+
+                    user_id:
+                        user.id,
+
+                    coleccion:
+                        'perfil_asesor',
+
+                    datos: {
+
+                        fecha_conexion:
+                            fecha,
+
+                        limra,
+
+                        igc,
+
+                        esquema:
+                            'PROFESIONAL'
+                    }
+                };
+
+                console.log(
+                    '[SAVE PERFIL]',
+                    payload
+                );
+
+                const {
+                    error
+                } = await sb
+                    .from('crm_data')
+                    .upsert(
+                        payload,
+                        {
+                            onConflict:'id'
+                        }
+                    );
+
+                if (error) {
+
+                    console.error(
+                        '[UPSERT ERROR]',
+                        error
+                    );
+
+                    throw error;
+                }
 
                 try {
 
-                    const fecha =
-                        document.getElementById(
-                            'cfg-fecha'
-                        ).value;
-
-                    const limra =
-                        parseFloat(
-                            document.getElementById(
-                                'cfg-limra'
-                            ).value
-                        ) || 75.5;
-
-                    const igc =
-                        parseFloat(
-                            document.getElementById(
-                                'cfg-igc'
-                            ).value
-                        ) || 91;
-
-                    if (!fecha) {
-
-                        showToast(
-                            'Selecciona fecha',
-                            'danger'
-                        );
-
-                        return;
-                    }
-
-                    const sb =
-                        window.supabaseClient;
-
-                    const {
-                        data: { user }
-                    } = await sb.auth.getUser();
-
-                    const payload = {
-
-                        id:
-                            'perfil_' +
-                            user.id,
-
-                        user_id:
-                            user.id,
-
-                        coleccion:
-                            'perfil_asesor',
-
-                        datos: {
-
-                            fecha_conexion:
-                                fecha,
-
-                            limra,
-
-                            igc,
-
-                            esquema:
-                                'PROFESIONAL'
+                    await DB.guardar(
+                        'perfil_asesor',
+                        {
+                            id: payload.id,
+                            ...payload.datos
                         }
-                    };
-
-                    const {
-                        error
-                    } = await sb
-                        .from('crm_data')
-                        .upsert(
-                            payload
-                        );
-
-                    if (error) {
-                        throw error;
-                    }
-
-                    try {
-
-                        await DB.guardar(
-                            'perfil_asesor',
-                            {
-                                id:
-                                    payload.id,
-
-                                ...payload.datos
-                            }
-                        );
-
-                    } catch (err) {
-
-                        console.warn(err);
-                    }
-
-                    showToast(
-                        '✅ Perfil guardado',
-                        'success'
                     );
 
-                    setTimeout(() => {
+                } catch (localErr) {
 
-                        window.App
-                            .router
-                            .navigate(
-                                'comisiones'
-                            );
-
-                    }, 300);
-
-                } catch (err) {
-
-                    console.error(err);
-
-                    showToast(
-                        'Error al guardar',
-                        'danger'
+                    console.warn(
+                        '[LOCAL SAVE]',
+                        localErr
                     );
                 }
+
+                showToast(
+                    '✅ Perfil guardado',
+                    'success'
+                );
+
+                setTimeout(() => {
+
+                    if (
+                        window.navigateTo
+                    ) {
+
+                        window.navigateTo(
+                            'comisiones'
+                        );
+
+                    } else {
+
+                        window.location.reload();
+
+                    }
+
+                }, 450);
+
+            } catch (err) {
+
+                console.error(
+                    '[SAVE FATAL]',
+                    err
+                );
+
+                showToast(
+                    err.message ||
+                    'Error al guardar',
+                    'danger'
+                );
+
+                btn.disabled = false;
             }
-        );
+        }
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -511,7 +665,7 @@ function renderDashboard(
                         style="
                             font-size:13px;
                             color:var(--text-secondary);
-                            margin-bottom:4px;
+                            margin-bottom:6px;
                         "
                     >
                         Motor Financiero
@@ -529,7 +683,7 @@ function renderDashboard(
                 </div>
 
                 <button
-                    id="btn-edit"
+                    id="btn-edit-profile"
                     class="btn-secondary"
                 >
                     ✏️ Editar
@@ -545,8 +699,8 @@ function renderDashboard(
                 style="
                     display:grid;
                     grid-template-columns:
-                    repeat(auto-fit,minmax(160px,1fr));
-                    gap:16px;
+                    repeat(auto-fit,minmax(180px,1fr));
+                    gap:18px;
                 "
             >
 
@@ -556,6 +710,7 @@ function renderDashboard(
                         style="
                             font-size:12px;
                             color:var(--text-secondary);
+                            margin-bottom:4px;
                         "
                     >
                         Fecha conexión
@@ -565,7 +720,6 @@ function renderDashboard(
                         style="
                             font-size:18px;
                             font-weight:700;
-                            margin-top:4px;
                         "
                     >
                         ${perfil.fecha_conexion}
@@ -579,6 +733,7 @@ function renderDashboard(
                         style="
                             font-size:12px;
                             color:var(--text-secondary);
+                            margin-bottom:4px;
                         "
                     >
                         LIMRA
@@ -588,10 +743,9 @@ function renderDashboard(
                         style="
                             font-size:18px;
                             font-weight:700;
-                            margin-top:4px;
                         "
                     >
-                        ${perfil.limra || 75.5}%
+                        ${perfil.limra}%
                     </div>
 
                 </div>
@@ -602,6 +756,7 @@ function renderDashboard(
                         style="
                             font-size:12px;
                             color:var(--text-secondary);
+                            margin-bottom:4px;
                         "
                     >
                         IGC
@@ -611,10 +766,9 @@ function renderDashboard(
                         style="
                             font-size:18px;
                             font-weight:700;
-                            margin-top:4px;
                         "
                     >
-                        ${perfil.igc || 91}%
+                        ${perfil.igc}%
                     </div>
 
                 </div>
@@ -631,23 +785,29 @@ function renderDashboard(
 // DASHBOARD EVENTS
 // ═══════════════════════════════════════════════════════════════
 
-function bindDashboard(
-    perfil
-) {
+function bindDashboardEvents() {
 
     document
         .getElementById(
-            'btn-edit'
+            'btn-edit-profile'
         )
         ?.addEventListener(
             'click',
             () => {
 
-                window.App
-                    .router
-                    .navigate(
+                if (
+                    window.navigateTo
+                ) {
+
+                    window.navigateTo(
                         'comisiones'
                     );
+
+                } else {
+
+                    window.location.reload();
+
+                }
             }
         );
 }
