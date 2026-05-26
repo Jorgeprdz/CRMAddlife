@@ -1,4 +1,4 @@
-// comisiones.js — Motor Financiero SMNYL v5
+// comisiones.js — Motor Financiero SMNYL v8
 // Cuadernos 2026: Asesores en Desarrollo + Nuevos Profesionales
 
 import { DB } from './db.js';
@@ -242,7 +242,6 @@ function calcularMotor(cartera, perfil) {
 // RENDER
 // ═══════════════════════════════════════════════════════════════════════════
 export function renderComisiones() {
-    // FIX: sin skeleton-shimmer (no estaba en CSS) — spinner simple
     return `<div id="fin-root" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:12px;">
         <div style="width:40px;height:40px;border:3px solid var(--separator);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
         <p style="font-size:13px;color:var(--text-secondary);">Cargando módulo financiero...</p>
@@ -424,7 +423,6 @@ function bindConfigForm(sb, userId) {
             } catch(_){}
 
             showToast('✅ Perfil guardado','success');
-            // FIX: pequeño delay antes de navegar para que el toast sea visible
             setTimeout(() => window.navigateTo('comisiones'), 400);
         } catch(e){
             console.error(e);
@@ -439,20 +437,28 @@ function bindConfigFormIndices(sb, userId, perfil) {
         const igc   = parseFloat(document.getElementById('idx-igc').value)||91.0;
 
         try {
-            // Guardar en DB local (crm_data) — fuente de verdad para limra e igc
+            // Guardar en DB local — fuente de verdad para limra e igc
             const loc = await DB.obtenerTodos('perfil_asesor');
             const datos = { ...(perfil||{}), limra, igc };
             if(loc.length > 0) {
                 await DB.actualizar('perfil_asesor', loc[0].id, { ...loc[0], limra, igc });
             } else {
-                // No hay perfil local — crearlo desde el perfil de Supabase
                 datos.id = 'perfil_' + Date.now();
                 await DB.guardar('perfil_asesor', datos);
             }
-            showToast('✅ Índices actualizados','success');
-            setTimeout(() => window.navigateTo('comisiones'), 500);
+            
+            showToast('✅ Índices actualizados', 'success');
+            
+            // Bypass del router: Construir UI directamente con datos en memoria
+            const cartera = await DB.obtenerTodos('cartera');
+            const perfilActualizado = { ...perfil, limra, igc };
+            const r = calcularMotor(cartera, perfilActualizado);
+            
+            document.getElementById('fin-root').innerHTML = buildUI(r, perfilActualizado);
+            bindUIEvents(r, perfilActualizado, sb, userId);
+            
         } catch(e){
-            showToast('Error al guardar: '+e.message,'danger');
+            showToast('Error al guardar: '+e.message, 'danger');
         }
     });
 }
@@ -604,7 +610,6 @@ function buildUI(r, perfil) {
             #fin-kpis { grid-template-columns: 1fr 1fr !important; }
         }
     </style>
-    <!-- ① Banner -->
     <div id="fin-banner" class="card" style="background:linear-gradient(135deg,#1a6bdb 0%,#0a4fb5 100%);color:white;border:none;margin:16px;">
         <p style="font-size:11px;color:rgba(255,255,255,.85);margin:0;text-transform:uppercase;font-weight:600;letter-spacing:.5px;">💰 Ingresos Estimados — ${mesNom}</p>
         <div id="fin-banner-num" style="font-size:42px;font-weight:800;letter-spacing:-2px;color:white;margin:8px 0;">${fmt(totalMes+bono.total)}</div>
@@ -615,7 +620,6 @@ function buildUI(r, perfil) {
         </div>
     </div>
 
-    <!-- ② KPIs -->
     <div id="fin-kpis-wrap"><div id="fin-kpis" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px 16px;">
         <div class="card" style="margin:0;border-left:4px solid var(--accent);">
             <span style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;">Pólizas este mes</span><br>
@@ -636,11 +640,8 @@ function buildUI(r, perfil) {
         </div>
     </div>
 
-    </div><!-- /fin-kpis-wrap -->
-    <!-- ③ Bono -->
-    <div id="fin-bono">${bonoHTML}</div>
+    </div><div id="fin-bono">${bonoHTML}</div>
 
-    <!-- ④ Tabla detalle -->
     <div id="fin-tabla" class="card" style="margin:0 16px 16px;">
         <h2 style="font-size:15px;margin-bottom:4px;">📋 Comisiones del Mes</h2>
         <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Pólizas que generaron comisión en ${mesNom}.</p>
@@ -669,7 +670,6 @@ function buildUI(r, perfil) {
         </div>
     </div>
 
-    <!-- ⑤ Gráfica -->
     <div id="fin-grafica" class="card" style="margin:0 16px 16px;">
         <h2 style="font-size:15px;margin-bottom:16px;">📊 Histórico — Últimos 6 Meses</h2>
         <div style="display:flex;align-items:flex-end;gap:6px;padding:0 4px;">${graficaHTML}</div>
@@ -679,7 +679,6 @@ function buildUI(r, perfil) {
         </div>
     </div>
 
-    <!-- ⑥ Proyección -->
     <div id="fin-proyec" class="card" style="margin:0 16px 16px;">
         <h2 style="font-size:15px;margin-bottom:12px;">📈 Proyección Anual</h2>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -695,7 +694,6 @@ function buildUI(r, perfil) {
         <p style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">Basada en ${hist6.filter(h=>h.ini+h.ren>0).length} meses con actividad.</p>
     </div>
 
-    <!-- ⑦ Simulador -->
     <div id="fin-sim" class="card" style="border-left:4px solid #5856D6;margin:0 16px 16px;">
         <h2 style="font-size:15px;margin-bottom:4px;">🔮 Simulador de Cierre</h2>
         <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Calcula comisión y puntos antes de emitir.</p>
@@ -745,7 +743,6 @@ function buildUI(r, perfil) {
         <div id="sim-resultado" style="background:var(--surface-2);border-radius:12px;padding:14px;display:none;"></div>
     </div>
 
-    <!-- ⑧ Tips IA -->
     <div id="fin-tips" class="card" style="border-left:4px solid var(--accent);margin:0 16px 16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
             <h2 style="font-size:15px;margin:0;">💡 Tips y Recomendaciones</h2>
@@ -754,7 +751,6 @@ function buildUI(r, perfil) {
         <div id="out-tips" style="font-size:13px;color:var(--text-primary);line-height:1.7;min-height:60px;white-space:pre-wrap;">Presiona "Generar" para recibir estrategias con tus números reales.</div>
     </div>
 
-    <!-- ⑨ YTD -->
     <div id="fin-ytd" class="card" style="margin:0 16px 16px;">
         <h2 style="font-size:15px;margin-bottom:12px;">🏅 Acumulados del Año</h2>
         <div style="display:flex;flex-direction:column;gap:10px;">
@@ -769,7 +765,6 @@ function buildUI(r, perfil) {
         </div>
     </div>
 
-    <!-- ⑩ Modo Dev — botón rojo con borde punteado -->
     <div style="margin:8px 16px 32px;border:2px dashed var(--danger);border-radius:16px;padding:16px;opacity:.75;">
         <p style="font-size:11px;color:var(--danger);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px;text-align:center;">⚙️ MODO DESARROLLADOR</p>
         <button id="btn-dev-reset" style="width:100%;background:transparent;border:1.5px solid var(--danger);color:var(--danger);border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
