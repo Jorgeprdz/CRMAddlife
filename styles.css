@@ -433,7 +433,6 @@ main {
   box-shadow: var(--shadow-2) !important;
   padding: var(--space-xl) !important;
   position: relative;
-  overflow: hidden;
   transition:
     box-shadow var(--dur-normal) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-smooth),
@@ -507,7 +506,7 @@ main {
   flex-direction: column;
   justify-content: space-between;
   position: relative;
-  overflow: hidden;
+
   transition:
     box-shadow var(--dur-normal) var(--ease-smooth),
     background var(--dur-normal) var(--ease-smooth),
@@ -941,7 +940,7 @@ button[data-val="1"]:active, button[data-val="-1"]:active {
   background: var(--color-surface-glass-sm) !important;
   font-size: 14px !important;
   outline: none;
-  width: auto;
+  width: auto !important;
   color: var(--text-primary) !important;
 }
 #ai-chat-input:focus {
@@ -1044,7 +1043,6 @@ button[data-val="1"]:active, button[data-val="-1"]:active {
   flex-direction: column;
   justify-content: space-between;
   position: relative;
-  overflow: hidden;
   transition:
     box-shadow var(--dur-normal) var(--ease-smooth),
     transform var(--dur-fast) var(--ease-smooth);
@@ -1137,10 +1135,9 @@ button[data-val="1"]:active, button[data-val="-1"]:active {
   50%       { box-shadow: 0 0 0 8px rgba(0,122,255,0); }
 }
 
-/* Apply staggered entrance to cards */
-.card, .glass-widget, .widget, .ios-widget {
-  animation: fadeInUp var(--dur-normal) var(--ease-out) both;
-}
+/* NOTE: No global animation on cards — they are injected via innerHTML
+   dynamically so fill-mode "both" would trap them at opacity:0.
+   Animations are applied only to static containers via JS if needed. */
 
 /* ─────────────────────────────────────────────────────────────────────
    LAYER 19: RESPONSIVE
