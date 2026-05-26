@@ -1,4 +1,4 @@
-// comisiones.js — Motor Financiero SMNYL v8
+// comisiones.js — Motor Financiero SMNYL v9
 // Cuadernos 2026: Asesores en Desarrollo + Nuevos Profesionales
 
 import { DB } from './db.js';
@@ -433,23 +433,44 @@ function bindConfigForm(sb, userId) {
 
 function bindConfigFormIndices(sb, userId, perfil) {
     document.getElementById('btn-save-indices')?.addEventListener('click', async () => {
-        const limra = parseFloat(document.getElementById('idx-limra').value)||75.5;
-        const igc   = parseFloat(document.getElementById('idx-igc').value)||91.0;
+        const limra = parseFloat(document.getElementById('idx-limra').value) || 75.5;
+        const igc   = parseFloat(document.getElementById('idx-igc').value) || 91.0;
 
         try {
-            // Guardar en DB local — fuente de verdad para limra e igc
             const loc = await DB.obtenerTodos('perfil_asesor');
-            const datos = { ...(perfil||{}), limra, igc };
-            if(loc.length > 0) {
-                await DB.actualizar('perfil_asesor', loc[0].id, { ...loc[0], limra, igc });
+            const perfilExistente = loc.length > 0 ? loc[0] : null;
+
+            if (perfilExistente) {
+                // 1. Intentar update directo en Supabase con los parámetros autenticados
+                const datosActualizados = { ...perfilExistente, limra, igc };
+                const { error } = await sb.from('crm_data')
+                    .update({ datos: datosActualizados })
+                    .eq('user_id', userId)
+                    .eq('coleccion', 'perfil_asesor');
+
+                if (error) throw error;
+
+                // Sincronizar cache local
+                try { await DB.actualizar('perfil_asesor', perfilExistente.id, datosActualizados); } catch(e){}
             } else {
-                datos.id = 'perfil_' + Date.now();
-                await DB.guardar('perfil_asesor', datos);
+                // 2. Si no hay registro, hacer insert con user_id explícito
+                const idNuevo = 'perfil_' + Date.now();
+                const { error } = await sb.from('crm_data').insert([{
+                    id: idNuevo,
+                    user_id: userId,
+                    coleccion: 'perfil_asesor',
+                    datos: { ...perfil, limra, igc }
+                }]);
+
+                if (error) throw error;
+
+                // Sincronizar cache local
+                try { await DB.guardar('perfil_asesor', { id: idNuevo, user_id: userId, ...perfil, limra, igc }); } catch(e){}
             }
             
             showToast('✅ Índices actualizados', 'success');
             
-            // Bypass del router: Construir UI directamente con datos en memoria
+            // 3. Bypass del router: Construir UI directamente con datos en memoria
             const cartera = await DB.obtenerTodos('cartera');
             const perfilActualizado = { ...perfil, limra, igc };
             const r = calcularMotor(cartera, perfilActualizado);
@@ -457,8 +478,8 @@ function bindConfigFormIndices(sb, userId, perfil) {
             document.getElementById('fin-root').innerHTML = buildUI(r, perfilActualizado);
             bindUIEvents(r, perfilActualizado, sb, userId);
             
-        } catch(e){
-            showToast('Error al guardar: '+e.message, 'danger');
+        } catch(e) {
+            showToast('Error al guardar: ' + e.message, 'danger');
         }
     });
 }
