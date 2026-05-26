@@ -1,124 +1,119 @@
-// /services/db.service.js
-// Motor de Base de Datos Cloud (Supabase) v2
-// Arquitectura endurecida para:
-// - Supabase RLS
-// - Offline First
-// - Ownership seguro
-// - Shadow Cache consistente
-// - Sincronización robusta
-// - Compatibilidad retroactiva
-//
-// IMPORTANTE:
-// Este archivo fue diseñado para:
-// ✅ NO romper la UI existente
-// ✅ NO romper módulos actuales
-// ✅ Mantener compatibilidad total
-// ✅ Corregir problemas estructurales reales
-//
-// Cambios principales:
-// - Ownership explícito con user_id
-// - Queries RLS-safe
-// - Shadow cache normalizado
-// - Protección contra corrupción de datos
-// - Protección contra race conditions
-// - Upserts seguros
-// - Offline queue robusta
-// - Normalización de rows
-// - Sync inteligente
-// - Compatibilidad con estructura antigua
+// db.js — Motor de Persistencia SMNYL v3
+// Arquitectura endurecida:
+// ✅ Supabase RLS Safe
+// ✅ Offline First
+// ✅ Shadow Cache
+// ✅ Ownership seguro
+// ✅ Compatibilidad retroactiva
+// ✅ Sin romper UI existente
+// ✅ Compatible con comisiones.js v11
 
+import { getSupabase } from './app.js';
 import { showToast } from './utils.js';
 
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 // CONFIG
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 
-const TABLE_NAME = 'crm_data';
-const OFFLINE_QUEUE_KEY = 'crm_offline_queue_v2';
-const SHADOW_PREFIX = 'db_shadow_';
+const TABLE = 'crm_data';
 
-let isOfflineQueueProcessing = false;
+const SHADOW_PREFIX = 'shadow_';
+const QUEUE_KEY = 'crm_offline_queue_v3';
 
-// ════════════════════════════════════════════════════════════════════════
+let syncing = false;
+
+// ═══════════════════════════════════════════════════════════════
 // HELPERS
-// ════════════════════════════════════════════════════════════════════════
-
-function isNetworkError(err) {
-    if (!navigator.onLine) return true;
-
-    const msg = String(err?.message || err).toLowerCase();
-
-    return (
-        msg.includes('fetch') ||
-        msg.includes('network') ||
-        msg.includes('load failed') ||
-        msg.includes('failed to fetch') ||
-        msg.includes('typeerror') ||
-        msg.includes('timeout')
-    );
-}
+// ═══════════════════════════════════════════════════════════════
 
 function log(...args) {
     console.log('[DB]', ...args);
 }
 
-function warn(...args) {
-    console.warn('[DB]', ...args);
+function debugError(context, err) {
+
+    console.error(`[DB:${context}]`, {
+        message: err?.message,
+        details: err?.details,
+        hint: err?.hint,
+        code: err?.code,
+        full: err
+    });
 }
 
-function error(...args) {
-    console.error('[DB]', ...args);
-}
+function isNetworkError(err) {
 
-async function getCurrentUser() {
-    if (!window.supabaseClient) return null;
+    if (!navigator.onLine) return true;
 
-    try {
-        const {
-            data: { user },
-            error: authError
-        } = await window.supabaseClient.auth.getUser();
+    const msg = String(
+        err?.message || ''
+    ).toLowerCase();
 
-        if (authError) {
-            error('Auth Error:', authError);
-            return null;
-        }
-
-        return user || null;
-
-    } catch (err) {
-        error('Error obteniendo usuario:', err);
-        return null;
-    }
+    return (
+        msg.includes('network') ||
+        msg.includes('fetch') ||
+        msg.includes('failed') ||
+        msg.includes('timeout')
+    );
 }
 
 function generateId() {
+
     return (
         'id_' +
         Date.now() +
         '_' +
-        Math.random().toString(36).substring(2, 9)
+        Math.random()
+            .toString(36)
+            .substring(2, 9)
     );
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// NORMALIZACIÓN
-// ════════════════════════════════════════════════════════════════════════
+async function getUser() {
 
-function normalizeDatos(datos = {}) {
-    if (!datos || typeof datos !== 'object') {
+    const sb = getSupabase();
+
+    if (!sb) return null;
+
+    try {
+
+        const {
+            data: { user },
+            error
+        } = await sb.auth.getUser();
+
+        if (error) throw error;
+
+        return user || null;
+
+    } catch (err) {
+
+        debugError('getUser', err);
+
+        return null;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NORMALIZACIÓN
+// ═══════════════════════════════════════════════════════════════
+
+function cleanDatos(datos = {}) {
+
+    if (
+        !datos ||
+        typeof datos !== 'object'
+    ) {
         return {};
     }
 
     const clean = { ...datos };
 
-    // Protección contra metadata contaminada
     delete clean.user_id;
     delete clean.coleccion;
     delete clean.created_at;
     delete clean.updated_at;
 
-    // Garantizar ID
     if (!clean.id) {
         clean.id = generateId();
     }
@@ -127,6 +122,7 @@ function normalizeDatos(datos = {}) {
 }
 
 function normalizeRow(row) {
+
     if (!row) return null;
 
     return {
@@ -135,59 +131,87 @@ function normalizeRow(row) {
         coleccion: row.coleccion,
         created_at: row.created_at,
         updated_at: row.updated_at,
-        datos: normalizeDatos(row.datos || {})
+        datos: cleanDatos(
+            row.datos || {}
+        )
     };
 }
 
-function buildSupabaseRow(userId, coleccion, datos) {
-    const normalized = normalizeDatos(datos);
+function buildRow(
+    userId,
+    coleccion,
+    datos
+) {
+
+    const clean = cleanDatos(datos);
 
     return {
-        id: normalized.id,
+        id: clean.id,
         user_id: userId,
         coleccion,
-        datos: normalized,
-        updated_at: new Date().toISOString()
+        datos: clean,
+        updated_at:
+            new Date().toISOString()
     };
 }
 
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 // SHADOW CACHE
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 
-function getShadowKey(coleccion) {
+function shadowKey(coleccion) {
     return SHADOW_PREFIX + coleccion;
 }
 
-function getLocalShadowRows(coleccion) {
+function readShadowRows(coleccion) {
+
     try {
+
         return JSON.parse(
-            localStorage.getItem(getShadowKey(coleccion)) || '[]'
+            localStorage.getItem(
+                shadowKey(coleccion)
+            ) || '[]'
         );
+
     } catch {
+
         return [];
     }
 }
 
-function saveLocalShadowRows(coleccion, rows) {
+function writeShadowRows(
+    coleccion,
+    rows
+) {
+
     localStorage.setItem(
-        getShadowKey(coleccion),
+        shadowKey(coleccion),
         JSON.stringify(rows)
     );
 }
 
-function getLocalShadow(coleccion) {
-    return getLocalShadowRows(coleccion)
-        .map(row => row.datos || row)
+function readShadow(coleccion) {
+
+    return readShadowRows(coleccion)
+        .map(r => r.datos || r)
         .filter(Boolean);
 }
 
-function upsertShadowRow(coleccion, row) {
-    const rows = getLocalShadowRows(coleccion);
+function upsertShadowRow(
+    coleccion,
+    row
+) {
 
-    const index = rows.findIndex(r => r.id === row.id);
+    const rows =
+        readShadowRows(coleccion);
+
+    const index =
+        rows.findIndex(
+            r => r.id === row.id
+        );
 
     if (index >= 0) {
+
         rows[index] = {
             ...rows[index],
             ...row,
@@ -196,320 +220,350 @@ function upsertShadowRow(coleccion, row) {
                 ...(row.datos || {})
             }
         };
+
     } else {
+
         rows.push(row);
     }
 
-    saveLocalShadowRows(coleccion, rows);
+    writeShadowRows(
+        coleccion,
+        rows
+    );
 }
 
-function removeShadowRow(coleccion, id) {
-    const rows = getLocalShadowRows(coleccion);
+function removeShadowRow(
+    coleccion,
+    id
+) {
 
-    saveLocalShadowRows(
+    const rows =
+        readShadowRows(coleccion);
+
+    writeShadowRows(
         coleccion,
         rows.filter(r => r.id !== id)
     );
 }
 
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 // OFFLINE QUEUE
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 
-function getOfflineQueue() {
+function getQueue() {
+
     try {
+
         return JSON.parse(
-            localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]'
+            localStorage.getItem(
+                QUEUE_KEY
+            ) || '[]'
         );
+
     } catch {
+
         return [];
     }
 }
 
-function saveOfflineQueue(queue) {
+function saveQueue(queue) {
+
     localStorage.setItem(
-        OFFLINE_QUEUE_KEY,
+        QUEUE_KEY,
         JSON.stringify(queue)
     );
 }
 
-export function enqueueOffline(task) {
-    const queue = getOfflineQueue();
+function enqueue(task) {
 
-    const existingIndex = queue.findIndex(
-        q =>
-            q.id === task.id &&
-            q.action === task.action &&
-            q.coleccion === task.coleccion
+    const queue = getQueue();
+
+    queue.push({
+        ...task,
+        timestamp: Date.now()
+    });
+
+    saveQueue(queue);
+
+    log(
+        'Task offline:',
+        task.action,
+        task.id
     );
-
-    if (existingIndex >= 0) {
-        queue[existingIndex] = {
-            ...queue[existingIndex],
-            ...task,
-            datos: {
-                ...(queue[existingIndex].datos || {}),
-                ...(task.datos || {})
-            }
-        };
-    } else {
-        queue.push({
-            ...task,
-            timestamp: Date.now()
-        });
-    }
-
-    saveOfflineQueue(queue);
-
-    log('Tarea offline encolada:', task.action, task.id);
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// OFFLINE SYNC ENGINE
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// OFFLINE SYNC
+// ═══════════════════════════════════════════════════════════════
 
 export async function processOfflineQueue() {
 
-    if (isOfflineQueueProcessing) return;
+    if (syncing) return;
     if (!navigator.onLine) return;
-    if (!window.supabaseClient) return;
 
-    isOfflineQueueProcessing = true;
+    syncing = true;
 
-    const queue = getOfflineQueue();
+    const sb = getSupabase();
 
-    if (queue.length === 0) {
-        isOfflineQueueProcessing = false;
+    if (!sb) {
+        syncing = false;
         return;
     }
 
-    const user = await getCurrentUser();
+    const user = await getUser();
 
     if (!user) {
-        warn('No hay sesión activa para sincronizar');
-        isOfflineQueueProcessing = false;
+        syncing = false;
         return;
     }
 
-    log(`Procesando cola offline (${queue.length})`);
+    const queue = getQueue();
+
+    if (!queue.length) {
+        syncing = false;
+        return;
+    }
 
     const pending = [];
-    let synced = 0;
 
     for (const task of queue) {
 
         try {
 
-            if (!task?.id || !task?.coleccion) {
-                warn('Task inválida omitida:', task);
-                continue;
-            }
+            if (
+                task.action === 'guardar' ||
+                task.action === 'actualizar'
+            ) {
 
-            if (task.action === 'guardar' || task.action === 'actualizar') {
-
-                const row = buildSupabaseRow(
+                const row = buildRow(
                     user.id,
                     task.coleccion,
                     task.datos
                 );
 
-                const { error: upsertError } =
-                    await window.supabaseClient
-                        .from(TABLE_NAME)
-                        .upsert(row, {
-                            onConflict: 'id'
-                        });
+                const { error } =
+                    await sb
+                        .from(TABLE)
+                        .upsert(
+                            row,
+                            {
+                                onConflict:'id'
+                            }
+                        );
 
-                if (upsertError) {
-                    throw upsertError;
-                }
-
-                synced++;
+                if (error) throw error;
             }
 
-            else if (task.action === 'eliminar') {
+            else if (
+                task.action === 'eliminar'
+            ) {
 
-                const { error: deleteError } =
-                    await window.supabaseClient
-                        .from(TABLE_NAME)
+                const { error } =
+                    await sb
+                        .from(TABLE)
                         .delete()
                         .eq('id', task.id)
-                        .eq('user_id', user.id);
+                        .eq(
+                            'user_id',
+                            user.id
+                        );
 
-                if (deleteError) {
-                    throw deleteError;
-                }
-
-                synced++;
+                if (error) throw error;
             }
 
         } catch (err) {
 
-            error('Error sincronizando task:', task, err);
+            debugError(
+                'offlineSync',
+                err
+            );
 
-            // Mantener task si no es error de red
             pending.push(task);
         }
     }
 
-    saveOfflineQueue(pending);
+    saveQueue(pending);
 
-    isOfflineQueueProcessing = false;
+    syncing = false;
 
-    if (synced > 0) {
+    if (pending.length === 0) {
+
         showToast(
-            `Sincronización completada (${synced})`,
+            '✅ Datos sincronizados',
             'success'
         );
     }
-
-    if (pending.length > 0) {
-        warn(`${pending.length} tareas pendientes`);
-    }
 }
 
-window.addEventListener('online', processOfflineQueue);
+window.addEventListener(
+    'online',
+    processOfflineQueue
+);
 
-// ════════════════════════════════════════════════════════════════════════
-// CORE API
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// DB API
+// ═══════════════════════════════════════════════════════════════
 
 export const DB = {
 
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
     // OBTENER TODOS
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
 
-    obtenerTodos: async (coleccion) => {
+    async obtenerTodos(
+        coleccion
+    ) {
 
-        const local = getLocalShadow(coleccion);
+        const local =
+            readShadow(coleccion);
 
-        if (!navigator.onLine || !window.supabaseClient) {
-            log(`Modo offline → usando shadow cache (${coleccion})`);
+        const sb = getSupabase();
+
+        if (!navigator.onLine || !sb) {
+
+            log(
+                'Offline:',
+                coleccion
+            );
+
             return local;
         }
 
         try {
 
-            const user = await getCurrentUser();
+            const user =
+                await getUser();
 
             if (!user) {
-                warn('Sin usuario autenticado → usando local cache');
+
                 return local;
             }
 
-            const { data, error: selectError } =
-                await window.supabaseClient
-                    .from(TABLE_NAME)
-                    .select('*')
-                    .eq('coleccion', coleccion)
-                    .eq('user_id', user.id);
+            const {
+                data,
+                error
+            } = await sb
+                .from(TABLE)
+                .select('*')
+                .eq(
+                    'coleccion',
+                    coleccion
+                )
+                .eq(
+                    'user_id',
+                    user.id
+                );
 
-            if (selectError) {
-                throw selectError;
-            }
+            if (error) throw error;
 
-            const rows = (data || []).map(normalizeRow);
+            const rows =
+                (data || [])
+                    .map(normalizeRow);
 
-            saveLocalShadowRows(coleccion, rows);
-
-            log(`Sync remoto exitoso (${coleccion})`);
+            writeShadowRows(
+                coleccion,
+                rows
+            );
 
             return rows
-                .map(r => r.datos)
-                .filter(Boolean);
+                .map(r => r.datos);
 
         } catch (err) {
 
-            if (isNetworkError(err)) {
-                warn('Network error → fallback local');
-                return local;
-            }
+            debugError(
+                'obtenerTodos',
+                err
+            );
 
-            error('Error obtenerTodos:', err);
-            throw err;
+            return local;
         }
     },
 
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
     // GUARDAR
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
 
-    guardar: async (
+    async guardar(
         coleccion,
         datos,
         isSyncing = false
-    ) => {
-
-        const normalized = normalizeDatos(datos);
-
-        if (!normalized.id) {
-            normalized.id = generateId();
-        }
-
-        // Shadow cache inmediato
-        if (!isSyncing) {
-
-            upsertShadowRow(
-                coleccion,
-                {
-                    id: normalized.id,
-                    coleccion,
-                    datos: normalized
-                }
-            );
-        }
-
-        if (!window.supabaseClient) {
-            warn('Sin Supabase → guardado local únicamente');
-            return true;
-        }
+    ) {
 
         try {
 
-            const user = await getCurrentUser();
+            const clean =
+                cleanDatos(datos);
 
-            if (!user) {
-                throw new Error(
-                    'No hay sesión activa'
+            if (!clean.id) {
+                clean.id = generateId();
+            }
+
+            if (!isSyncing) {
+
+                upsertShadowRow(
+                    coleccion,
+                    {
+                        id: clean.id,
+                        coleccion,
+                        datos: clean
+                    }
                 );
             }
 
-            const row = buildSupabaseRow(
-                user.id,
-                coleccion,
-                normalized
-            );
+            const sb = getSupabase();
 
-            const { error: upsertError } =
-                await window.supabaseClient
-                    .from(TABLE_NAME)
-                    .upsert(row, {
-                        onConflict: 'id'
-                    });
-
-            if (upsertError) {
-                throw upsertError;
+            if (!sb) {
+                return true;
             }
 
-            log('Registro guardado:', normalized.id);
+            const user =
+                await getUser();
+
+            if (!user) {
+
+                throw new Error(
+                    'No hay sesión'
+                );
+            }
+
+            const row = buildRow(
+                user.id,
+                coleccion,
+                clean
+            );
+
+            const { error } =
+                await sb
+                    .from(TABLE)
+                    .upsert(
+                        row,
+                        {
+                            onConflict:'id'
+                        }
+                    );
+
+            if (error) {
+                throw error;
+            }
 
             return true;
 
         } catch (err) {
 
-            error('Error guardar:', err);
+            debugError(
+                'guardar',
+                err
+            );
 
             if (
-                !isSyncing &&
                 isNetworkError(err)
             ) {
 
-                enqueueOffline({
-                    action: 'guardar',
+                enqueue({
+                    action:'guardar',
                     coleccion,
-                    id: normalized.id,
-                    datos: normalized
+                    id: datos.id,
+                    datos
                 });
 
                 return true;
@@ -519,119 +573,106 @@ export const DB = {
         }
     },
 
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
     // ACTUALIZAR
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
 
-    actualizar: async (
+    async actualizar(
         coleccion,
         id,
         nuevosDatos,
         isSyncing = false
-    ) => {
-
-        const normalized = normalizeDatos(nuevosDatos);
-
-        // Shadow cache inmediato
-        if (!isSyncing) {
-
-            const rows = getLocalShadowRows(coleccion);
-
-            const existing =
-                rows.find(r => r.id === id);
-
-            const merged = {
-                ...(existing?.datos || {}),
-                ...normalized,
-                id
-            };
-
-            upsertShadowRow(
-                coleccion,
-                {
-                    id,
-                    coleccion,
-                    datos: merged
-                }
-            );
-        }
-
-        if (!window.supabaseClient) {
-            warn('Sin Supabase → actualización local');
-            return true;
-        }
+    ) {
 
         try {
 
-            const user = await getCurrentUser();
-
-            if (!user) {
-                throw new Error(
-                    'No hay sesión activa'
+            const clean =
+                cleanDatos(
+                    nuevosDatos
                 );
-            }
 
-            // Obtener row actual segura
-            const {
-                data: existingRow,
-                error: getError
-            } = await window.supabaseClient
-                .from(TABLE_NAME)
-                .select('*')
-                .eq('id', id)
-                .eq('user_id', user.id)
-                .maybeSingle();
+            const rows =
+                readShadowRows(
+                    coleccion
+                );
 
-            if (getError) {
-                throw getError;
-            }
+            const existing =
+                rows.find(
+                    r => r.id === id
+                );
 
-            const currentDatos =
-                existingRow?.datos || {};
-
-            const mergedDatos = {
-                ...currentDatos,
-                ...normalized,
+            const merged = {
+                ...(existing?.datos || {}),
+                ...clean,
                 id
             };
 
-            const updatePayload =
-                buildSupabaseRow(
-                    user.id,
+            if (!isSyncing) {
+
+                upsertShadowRow(
                     coleccion,
-                    mergedDatos
+                    {
+                        id,
+                        coleccion,
+                        datos: merged
+                    }
                 );
-
-            const {
-                error: updateError
-            } = await window.supabaseClient
-                .from(TABLE_NAME)
-                .upsert(updatePayload, {
-                    onConflict: 'id'
-                });
-
-            if (updateError) {
-                throw updateError;
             }
 
-            log('Registro actualizado:', id);
+            const sb = getSupabase();
+
+            if (!sb) {
+                return true;
+            }
+
+            const user =
+                await getUser();
+
+            if (!user) {
+
+                throw new Error(
+                    'No hay sesión'
+                );
+            }
+
+            const row = buildRow(
+                user.id,
+                coleccion,
+                merged
+            );
+
+            const { error } =
+                await sb
+                    .from(TABLE)
+                    .upsert(
+                        row,
+                        {
+                            onConflict:'id'
+                        }
+                    );
+
+            if (error) {
+                throw error;
+            }
 
             return true;
 
         } catch (err) {
 
-            error('Error actualizar:', err);
+            debugError(
+                'actualizar',
+                err
+            );
 
             if (
-                !isSyncing &&
                 isNetworkError(err)
             ) {
 
-                enqueueOffline({
-                    action: 'actualizar',
+                enqueue({
+                    action:'actualizar',
                     coleccion,
                     id,
-                    datos: normalized
+                    datos:nuevosDatos
                 });
 
                 return true;
@@ -641,60 +682,71 @@ export const DB = {
         }
     },
 
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
     // ELIMINAR
-    // ════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
 
-    eliminar: async (
+    async eliminar(
         coleccion,
         id,
         isSyncing = false
-    ) => {
-
-        if (!isSyncing) {
-            removeShadowRow(coleccion, id);
-        }
-
-        if (!window.supabaseClient) {
-            return true;
-        }
+    ) {
 
         try {
 
-            const user = await getCurrentUser();
+            if (!isSyncing) {
 
-            if (!user) {
-                throw new Error(
-                    'No hay sesión activa'
+                removeShadowRow(
+                    coleccion,
+                    id
                 );
             }
 
-            const { error: deleteError } =
-                await window.supabaseClient
-                    .from(TABLE_NAME)
-                    .delete()
-                    .eq('id', id)
-                    .eq('user_id', user.id);
+            const sb = getSupabase();
 
-            if (deleteError) {
-                throw deleteError;
+            if (!sb) {
+                return true;
             }
 
-            log('Registro eliminado:', id);
+            const user =
+                await getUser();
+
+            if (!user) {
+
+                throw new Error(
+                    'No hay sesión'
+                );
+            }
+
+            const { error } =
+                await sb
+                    .from(TABLE)
+                    .delete()
+                    .eq('id', id)
+                    .eq(
+                        'user_id',
+                        user.id
+                    );
+
+            if (error) {
+                throw error;
+            }
 
             return true;
 
         } catch (err) {
 
-            error('Error eliminar:', err);
+            debugError(
+                'eliminar',
+                err
+            );
 
             if (
-                !isSyncing &&
                 isNetworkError(err)
             ) {
 
-                enqueueOffline({
-                    action: 'eliminar',
+                enqueue({
+                    action:'eliminar',
                     coleccion,
                     id
                 });
@@ -707,9 +759,9 @@ export const DB = {
     }
 };
 
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 // AUTO SYNC
-// ════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 
 setTimeout(() => {
     processOfflineQueue();
