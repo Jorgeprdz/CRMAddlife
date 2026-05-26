@@ -211,7 +211,6 @@ export async function bindComisionesEvents() {
         const { data: { user }, error: authErr } = await sb.auth.getUser();
         if(authErr || !user) throw new Error('Sesión inválida');
 
-        // Leer perfil seguro (Bypass local para asegurar integridad)
         let perfil = null;
         const { data } = await sb.from('crm_data').select('*').eq('user_id', user.id).eq('coleccion', 'perfil_asesor').maybeSingle();
         if (data) perfil = { id: data.id, ...data.datos };
@@ -339,7 +338,6 @@ function buildUI(r, perfil) {
     const {bono, hist6, etiq6, detallesMes} = r;
     const totalMes = r.comInicialMes + r.comRenovMes;
     
-    // Gráfica HTML
     const maxH = Math.max(...hist6.map(h=>h.ini+h.ren), 1);
     const graficaHTML = hist6.map((h, i) => {
         const tot = h.ini + h.ren, pI = (h.ini/maxH)*90, pR = (h.ren/maxH)*90;
