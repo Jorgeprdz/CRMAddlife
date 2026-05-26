@@ -7,7 +7,11 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" id="meta-theme-color" content="#F2F2F7">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase: cambiado a unpkg por mayor estabilidad -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- DEBUG: Eruda consola móvil — QUITAR ANTES DE PRODUCCIÓN -->
+    <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
 </head>
 <body>
 

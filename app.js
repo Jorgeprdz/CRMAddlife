@@ -157,6 +157,16 @@ CARTERA:
 }
 
 // ── Inicialización ────────────────────────────────────────────────────────
+// ── DEBUG: captura errores globales — QUITAR ANTES DE PRODUCCIÓN ─────────
+window.onerror = (msg, src, line, col, err) => {
+    console.error('[GlobalError]', msg, src, line);
+    alert(`⚠️ Error: ${msg}\nArchivo: ${src}\nLínea: ${line}`);
+};
+window.addEventListener('unhandledrejection', e => {
+    console.error('[UnhandledPromise]', e.reason);
+    alert(`⚠️ Promise sin manejar: ${e.reason}`);
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Theme
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -180,14 +190,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     ['mousedown','mousemove','keypress','scroll','touchstart'].forEach(e => document.addEventListener(e, resetTimer, true));
 
     // Inicializar Supabase
+    const contentArea = document.getElementById('app-content');
+
+    // Mostrar pantalla de carga mientras espera el SDK
+    if (contentArea) {
+        contentArea.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+            <p style="color:var(--text-secondary);font-size:14px;">⏳ Conectando...</p>
+        </div>`;
+    }
+
     let intentos = 0;
-    while (!window.supabase && intentos < 20) {
+    console.log('[Debug] Esperando window.supabase...');
+    while (!window.supabase && intentos < 50) {   // 5 segundos máximo
         await new Promise(r => setTimeout(r, 100));
         intentos++;
     }
+    console.log(`[Debug] window.supabase disponible: ${!!window.supabase} (intentos: ${intentos})`);
+
     if (window.supabase) {
         _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         window.supabaseClient = _supabase;
+        console.log('[Debug] Supabase client creado correctamente.');
+    } else {
+        console.error('[Debug] SDK de Supabase no cargó después de 5s.');
     }
 
     const router = new Router();
@@ -199,16 +224,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.reload();
     };
 
-    const contentArea = document.getElementById('app-content');
     const navBar      = document.getElementById('main-sidebar');
     const chatBubble  = document.getElementById('ai-chat-bubble');
 
     if (!_supabase) {
+        console.error('[Debug] _supabase es null — mostrando pantalla de error.');
         contentArea.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:24px;"><div class="card" style="text-align:center;max-width:360px;width:100%;"><h2 style="color:var(--danger);">Sin conexión</h2><p style="color:var(--text-secondary);font-size:14px;">No se pudo conectar con el servidor. Revisa tu conexión.</p><button class="btn-primary" onclick="location.reload()" style="margin-top:16px;width:100%;">🔄 Reintentar</button></div></div>`;
         return;
     }
 
-    const { data: { user } } = await _supabase.auth.getUser();
+    console.log('[Debug] Verificando sesión de usuario...');
+    const { data: { user }, error: authError } = await _supabase.auth.getUser();
+    console.log(`[Debug] Usuario: ${user ? user.email : 'null'} | Error: ${authError?.message || 'ninguno'}`);
 
     if (!user) {
         if (navBar)     navBar.style.display    = 'none';
