@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Addlife — Design System v2.0 Preview</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Preview-only layout */
+  .preview-section { margin-bottom: 32px; }
+  .preview-label {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--text-tertiary);
+    margin-bottom: 12px; padding-left: 4px;
+  }
+  .token-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .color-chip {
+    width: 44px; height: 44px; border-radius: 12px;
+    border: 1px solid var(--separator);
+    transition: transform 0.15s;
+  }
+  .color-chip:hover { transform: scale(1.1); }
+  body { padding-top: 0 !important; }
+  main { padding-top: 24px !important; padding-bottom: 48px !important; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ═══════════════════════════════════════════
+       HEADER PREVIEW
+       ═══════════════════════════════════════════ -->
+  <div style="
+    background: var(--color-surface-glass-lg);
+    backdrop-filter: var(--blur-glass);
+    -webkit-backdrop-filter: var(--blur-glass);
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--border-glass);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: var(--shadow-2);
+  ">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,#007AFF,#5AC8FA); border:2px solid rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; font-size:18px;">👤</div>
+      <div>
+        <p style="font-size:11px; color:var(--text-secondary); font-weight:600; margin-bottom:2px;">CRM Addlife</p>
+        <strong style="font-size:16px; letter-spacing:-0.3px;">Buenas tardes, Ana</strong>
+      </div>
+    </div>
+    <div class="ios-toggle-wrap">
+      <label class="ios-toggle">
+        <input type="checkbox" id="theme-toggle-preview">
+        <div class="ios-toggle-track"></div>
+        <div class="ios-toggle-thumb"></div>
+      </label>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       HERO WIDGET
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">Hero Widget — Accent</p>
+    <div class="card widget-accent" style="padding:24px !important;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <p style="font-size:12px; font-weight:600; opacity:0.75; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px;">Dashboard</p>
+          <h1 style="font-size:26px; color:white; font-weight:800; letter-spacing:-0.5px; margin:0;">Buenas tardes, Ana 👋</h1>
+          <p style="margin:6px 0 0 0; opacity:0.80; font-size:13px; color:white;">Estatus de tu negocio hoy.</p>
+        </div>
+        <div style="width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0;">📊</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       KPI WIDGET GRID
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">KPI Widget Grid — iOS Style</p>
+    <div class="widget-grid">
+      <div class="widget">
+        <span class="widget-title">Puntos semana</span>
+        <span class="widget-value" style="color:var(--color-primary);">87</span>
+        <div class="progress-bar-track" style="margin-top:10px;">
+          <div class="progress-bar-fill" style="width:70%;"></div>
+        </div>
+      </div>
+      <div class="widget">
+        <span class="widget-title">Meta semanal</span>
+        <span class="widget-value">125</span>
+        <span class="badge badge-orange" style="margin-top:10px; align-self:flex-start;">38 faltantes</span>
+      </div>
+      <div class="widget">
+        <span class="widget-title">Prima de cartera</span>
+        <span class="widget-value" style="color:var(--color-success); font-size:18px;">$48,320</span>
+        <span style="font-size:11px; color:var(--text-secondary); margin-top:4px;">MXN mensual</span>
+      </div>
+      <div class="widget">
+        <span class="widget-title">Pólizas activas</span>
+        <span class="widget-value">24</span>
+        <span class="badge badge-green" style="margin-top:10px; align-self:flex-start;">+3 este mes</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       GLASS CARD WITH ACCENT BORDER
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">Glass Cards — Accent Borders</p>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+
+      <div class="card" style="border-left:4px solid var(--color-primary) !important;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h2 style="font-size:16px; margin:0;">📊 Productividad Semanal</h2>
+          <span class="badge badge-blue">70%</span>
+        </div>
+        <p style="font-size:14px; color:var(--text-secondary); margin-bottom:12px;">Esta semana llevas <strong style="color:var(--text-primary);">87</strong> de 125 puntos. Faltan <strong style="color:var(--color-danger);">38</strong>.</p>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" style="width:70%;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+          <span style="font-size:12px; color:var(--text-secondary);">70% completado</span>
+          <span class="badge badge-orange">~13 pts/día</span>
+        </div>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--color-warning) !important;">
+        <h2 style="font-size:16px; margin-bottom:14px;">🎯 Radar de Fidelización</h2>
+        <div class="fidelization-row">
+          <span>🎂 <strong>María García</strong></span>
+          <span class="badge badge-blue">en 5d</span>
+        </div>
+        <div class="fidelization-row">
+          <span>📈 <strong>Carlos Ruiz</strong> <span style="color:var(--text-tertiary);">edad actuarial</span></span>
+          <span class="badge badge-orange">en 12d</span>
+        </div>
+        <div class="fidelization-row">
+          <span>🛡️ <strong>P-2847</strong> <span style="color:var(--text-tertiary);">aniversario</span></span>
+          <span class="badge badge-purple">en 28d</span>
+        </div>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--color-danger) !important;">
+        <h2 style="font-size:16px; margin-bottom:10px;">💼 Control de Cartera</h2>
+        <p style="color:var(--color-danger); font-size:14px;">⚠️ Pólizas de <strong>Juan López</strong> y <strong>Ana Martínez</strong> pendientes de cobro.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       ACTIVITY COUNTER WIDGETS
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">Activity Counter Widgets</p>
+    <div style="background:linear-gradient(135deg, rgba(0,122,255,0.92) 0%, rgba(0,86,179,0.92) 100%); backdrop-filter:blur(20px); border-radius:var(--radius-widget); padding:20px; text-align:center; margin-bottom:12px; box-shadow:var(--shadow-accent);">
+      <span style="font-size:11px; text-transform:uppercase; font-weight:700; opacity:0.8; letter-spacing:1px; color:white;">Puntos Oficiales Hoy</span>
+      <div style="font-size:52px; font-weight:800; letter-spacing:-2px; line-height:1; margin:8px 0; color:white;">42</div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px;">
+      <div class="ios-widget">
+        <span style="font-size:10px; color:var(--text-secondary); font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Referidos <span style="opacity:0.5;">(1pt)</span></span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+          <strong style="font-size:28px; font-weight:800; color:var(--text-primary);">3</strong>
+          <div style="display:flex; gap:6px;">
+            <button data-val="-1">−</button>
+            <button data-val="1">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="ios-widget">
+        <span style="font-size:10px; color:var(--text-secondary); font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Citas cierre <span style="opacity:0.5;">(5pts)</span></span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+          <strong style="font-size:28px; font-weight:800; color:var(--color-primary);">2</strong>
+          <div style="display:flex; gap:6px;">
+            <button data-val="-1">−</button>
+            <button data-val="1">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       FORM CONTROLS
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">Form Controls — Glass Inputs</p>
+    <div class="card">
+      <h2 style="font-size:16px; margin-bottom:16px;">🎯 Control de Prospectos</h2>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div>
+          <label>Nombre completo</label>
+          <input class="glass-input" placeholder="Juan García López" style="margin:0;">
+        </div>
+        <div>
+          <label>Teléfono</label>
+          <input class="glass-input" type="tel" placeholder="+52 55 0000 0000" style="margin:0;">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div>
+            <label>Producto</label>
+            <select class="glass-input" style="margin:0;">
+              <option>Retiro (PPR)</option>
+              <option>Segubeca</option>
+              <option>GMM</option>
+            </select>
+          </div>
+          <div>
+            <label>Temperatura</label>
+            <select class="glass-input" style="margin:0;">
+              <option>Cálido</option>
+              <option>Tibio</option>
+              <option>Frío</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:4px;">
+          <button class="btn-primary" style="flex:1;">💾 Guardar</button>
+          <button class="btn-secondary" style="flex:1;">❌ Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       BADGES SHOWCASE
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">Badge System</p>
+    <div class="card">
+      <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        <span class="badge badge-blue">Nuevo</span>
+        <span class="badge badge-green">✅ Pagado</span>
+        <span class="badge badge-orange">⚠️ Pendiente</span>
+        <span class="badge badge-red">❌ Vencido</span>
+        <span class="badge badge-purple">📋 Seguimiento</span>
+        <span class="badge badge-green">🎉 Meta cumplida</span>
+        <span class="badge badge-blue">en 5d</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       AI CHAT PREVIEW (inline)
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">AI Chat Widget — Glassmorphism</p>
+    <div style="
+      background: var(--color-surface-glass-lg);
+      backdrop-filter: saturate(200%) blur(32px);
+      -webkit-backdrop-filter: saturate(200%) blur(32px);
+      border-radius: var(--radius-2xl);
+      border: 1px solid var(--border-glass);
+      box-shadow: var(--shadow-float);
+      overflow: hidden;
+    ">
+      <div class="chat-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">🧠</span>
+          <div>
+            <span style="font-size:13px; font-weight:600;">Asistente Comercial</span><br>
+            <span style="font-size:10px; color:var(--color-success);">● Con datos reales</span>
+          </div>
+        </div>
+        <div class="chat-close-btn">✕</div>
+      </div>
+      <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+        <div class="msg-row ia-row">
+          <div class="chat-bubble ia-bubble">Hola 👋 Pregúntame sobre tus comisiones, renovaciones o qué te falta para el bono.</div>
+        </div>
+        <div class="msg-row user-row">
+          <div class="chat-bubble user-bubble">¿Cuánto me falta para el bono este mes?</div>
+        </div>
+        <div class="msg-row ia-row">
+          <div class="chat-bubble ia-bubble">Con tus 87 puntos actuales, te faltan <strong>38 puntos</strong>. Si cierras 2 citas más esta semana, alcanzas el bono. 🎯</div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <input id="ai-chat-input" placeholder="Pregunta sobre tu negocio..." autocomplete="off">
+        <button class="chat-send-btn">↑</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       COMISIONES / FINANZAS WIDGETS
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">Módulo Finanzas — KPI Cards</p>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card widget-accent" style="padding:22px !important;">
+        <p style="font-size:11px; opacity:0.75; text-transform:uppercase; letter-spacing:0.8px; font-weight:700; color:white; margin-bottom:4px;">Comisión estimada este mes</p>
+        <p style="font-size:36px; font-weight:800; color:white; letter-spacing:-1px; margin-bottom:4px;">$12,480</p>
+        <p style="font-size:12px; opacity:0.75; color:white;">MXN · Nivel Agente Senior</p>
+      </div>
+      <div class="widget-grid">
+        <div class="widget">
+          <span class="widget-title">Primas pagadas</span>
+          <span class="widget-value" style="font-size:20px; color:var(--color-success);">$38,200</span>
+        </div>
+        <div class="widget">
+          <span class="widget-title">Cartera activa</span>
+          <span class="widget-value" style="font-size:20px;">24 pól.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       DESIGN TOKENS SWATCH
+       ═══════════════════════════════════════════ -->
+  <div class="preview-section">
+    <p class="preview-label">Design Tokens — Color Palette</p>
+    <div class="card">
+      <p style="font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Brand Colors</p>
+      <div class="token-row">
+        <div class="color-chip" style="background:var(--color-primary);" title="Primary #007AFF"></div>
+        <div class="color-chip" style="background:var(--color-success);" title="Success #30D158"></div>
+        <div class="color-chip" style="background:var(--color-warning);" title="Warning #FF9F0A"></div>
+        <div class="color-chip" style="background:var(--color-danger);" title="Danger #FF453A"></div>
+        <div class="color-chip" style="background:var(--color-purple);" title="Purple #BF5AF2"></div>
+        <div class="color-chip" style="background:var(--color-teal);" title="Teal #5AC8FA"></div>
+      </div>
+      <p style="font-size:12px; font-weight:700; color:var(--text-secondary); margin:12px 0 10px; text-transform:uppercase; letter-spacing:0.5px;">Surface Levels</p>
+      <div class="token-row">
+        <div class="color-chip" style="background:var(--color-bg); border:2px solid var(--separator);" title="BG"></div>
+        <div class="color-chip" style="background:var(--color-surface-glass-sm); border:2px solid var(--separator);" title="Glass SM"></div>
+        <div class="color-chip" style="background:var(--color-surface-glass); border:2px solid var(--separator);" title="Glass"></div>
+        <div class="color-chip" style="background:var(--color-surface-glass-lg); border:2px solid var(--separator);" title="Glass LG"></div>
+        <div class="color-chip" style="background:var(--color-surface-1); border:2px solid var(--separator);" title="Surface 1"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding:20px 0; color:var(--text-tertiary); font-size:12px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">
+    CRM Addlife · Design System v2.0 · Samsung One UI 8.5 × Apple iOS Widgets × Glassmorphism
+  </div>
+
+</main>
+
+<!-- Bottom nav preview -->
+<nav id="main-sidebar" class="bottom-nav" style="display:flex;">
+  <button class="nav-btn active" data-target="dashboard"><span class="icon">🏠</span><span class="label">Inicio</span></button>
+  <button class="nav-btn" data-target="prospeccion"><span class="icon">🎯</span><span class="label">Embudo</span></button>
+  <button class="nav-btn" data-target="referidos"><span class="icon">👥</span><span class="label">Directorio</span></button>
+  <button class="nav-btn" data-target="actividad"><span class="icon">📈</span><span class="label">Actividad</span></button>
+  <button class="nav-btn" data-target="cartera"><span class="icon">💼</span><span class="label">Cartera</span></button>
+  <button class="nav-btn" data-target="comisiones"><span class="icon">💰</span><span class="label">Finanzas</span></button>
+  <button class="nav-btn nav-btn-logout"><span class="icon">🚪</span><span class="label">Salir</span></button>
+</nav>
+
+<script>
+  // Dark mode toggle
+  const toggle = document.getElementById('theme-toggle-preview');
+  toggle.addEventListener('change', () => {
+    document.documentElement.setAttribute('data-theme', toggle.checked ? 'dark' : '');
+  });
+
+  // Nav active state
+  document.querySelectorAll('.nav-btn[data-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Counter buttons demo
+  document.querySelectorAll('[data-val]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = parseInt(btn.dataset.val);
+      const valueEl = btn.closest('.ios-widget')?.querySelector('[style*="font-size:28px"]');
+      if (valueEl) {
+        const cur = parseInt(valueEl.textContent) || 0;
+        valueEl.textContent = Math.max(0, cur + val);
+      }
+    });
+  });
+</script>
+</body>
+</html>
