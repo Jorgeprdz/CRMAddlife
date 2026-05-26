@@ -1,4 +1,4 @@
-// comisiones.js — FULL SAFE RECOVERY BUILD (Glass UI + RLS Safe)
+// comisiones.js — FULL SAFE RECOVERY BUILD v16 (RLS Safe)
 import { DB } from './db.js';
 import { getSupabase, callGemini } from './app.js';
 import { showToast, showConfirm } from './utils.js';
@@ -197,9 +197,9 @@ function calcularMotor(cartera, perfil) {
 // INICIALIZACIÓN Y FLUJO RLS SAFE
 // ═══════════════════════════════════════════════════════════════════════════
 export function renderComisiones() {
-    return `<div id="fin-root" class="flex items-center justify-center min-h-[60vh]">
-        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-    </div>`;
+    return `<div id="fin-root" style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+        <div style="width:40px;height:40px;border:3px solid var(--separator);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    </div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
 }
 
 export async function bindComisionesEvents() {
@@ -222,7 +222,7 @@ export async function bindComisionesEvents() {
         }
 
         const hoy = new Date();
-        const fxConn = new Date(perfil.fecha_conexion+'T12:00:00');
+        const fxConn = new Date((perfil.fecha_conexion||perfil.fechaConexion)+'T12:00:00');
         const mc = Math.max(1, Math.floor((hoy-fxConn)/(1000*60*60*24*30.44))+1);
         
         if (mc >= 15 && (!perfil.limra || !perfil.igc)) {
@@ -237,34 +237,34 @@ export async function bindComisionesEvents() {
         bindUIEvents(res, perfil, sb, user.id);
 
     } catch(e) {
-        root.innerHTML = `<div class="text-center p-8"><p class="text-danger">❌ ${e.message}</p></div>`;
+        root.innerHTML = `<div style="text-align:center;padding:32px;"><p style="color:var(--danger);">❌ ${e.message}</p></div>`;
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FORMULARIOS DE CONFIGURACIÓN (GLASS UI)
+// FORMULARIOS DE CONFIGURACIÓN
 // ═══════════════════════════════════════════════════════════════════════════
 function renderConfigForm() {
     return `
-    <div class="min-h-[60vh] flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md p-8 border-t-4 border-t-primary">
-            <h2 class="text-xl font-bold text-white text-center mb-6">Configurar Motor Financiero</h2>
-            <div class="space-y-4">
+    <div style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:16px;">
+        <div class="card" style="width:100%;max-width:420px;border-left:4px solid var(--accent);">
+            <h2 style="font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;">Configurar Motor Financiero</h2>
+            <div style="display:flex;flex-direction:column;gap:16px;">
                 <div>
-                    <label class="text-xs text-white/70 uppercase">Fecha de Conexión</label>
-                    <input type="date" id="cfg-fec" class="glass-input mt-1">
+                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">Fecha de Conexión</label>
+                    <input type="date" id="cfg-fec" class="glass-input" style="width:100%;margin-top:6px;">
                 </div>
-                <div id="cfg-indices-wrap" class="hidden grid-cols-2 gap-3">
+                <div id="cfg-indices-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:12px;">
                     <div>
-                        <label class="text-[10px] text-white/70 uppercase">LIMRA %</label>
-                        <input type="number" id="cfg-limra" step="0.1" value="75.5" class="glass-input">
+                        <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">LIMRA %</label>
+                        <input type="number" id="cfg-limra" step="0.1" value="75.5" class="glass-input" style="width:100%;margin-top:6px;">
                     </div>
                     <div>
-                        <label class="text-[10px] text-white/70 uppercase">IGC %</label>
-                        <input type="number" id="cfg-igc" step="0.1" value="91.0" class="glass-input">
+                        <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">IGC %</label>
+                        <input type="number" id="cfg-igc" step="0.1" value="91.0" class="glass-input" style="width:100%;margin-top:6px;">
                     </div>
                 </div>
-                <button id="btn-save-cfg" class="glass-btn w-full">🚀 Iniciar Motor</button>
+                <button id="btn-save-cfg" class="btn-primary" style="margin-top:8px;">🚀 Iniciar Motor</button>
             </div>
         </div>
     </div>`;
@@ -272,13 +272,13 @@ function renderConfigForm() {
 
 function renderConfigFormIndices(perfil) {
     return `
-    <div class="min-h-[60vh] flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md p-8 border-t-4 border-t-warning">
-            <h2 class="text-xl font-bold text-white text-center mb-6">Actualizar Índices</h2>
-            <div class="space-y-4">
-                <input type="number" id="idx-limra" step="0.1" value="${perfil.limra||75.5}" class="glass-input text-lg font-bold" placeholder="LIMRA">
-                <input type="number" id="idx-igc" step="0.1" value="${perfil.igc||91.0}" class="glass-input text-lg font-bold" placeholder="IGC">
-                <button id="btn-save-indices" class="glass-btn w-full">💾 Guardar y Continuar</button>
+    <div style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:16px;">
+        <div class="card" style="width:100%;max-width:420px;border-left:4px solid var(--warning);">
+            <h2 style="font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;">Actualizar Índices</h2>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <input type="number" id="idx-limra" step="0.1" value="${perfil.limra||75.5}" class="glass-input" placeholder="LIMRA %" style="width:100%;">
+                <input type="number" id="idx-igc" step="0.1" value="${perfil.igc||91.0}" class="glass-input" placeholder="IGC %" style="width:100%;">
+                <button id="btn-save-indices" class="btn-primary" style="margin-top:8px;">💾 Guardar y Continuar</button>
             </div>
         </div>
     </div>`;
@@ -332,7 +332,7 @@ function bindConfigFormIndices(sb, userId, perfil) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RENDERIZADO DEL DASHBOARD (GLASS UI)
+// RENDERIZADO DEL DASHBOARD FINANCIERO
 // ═══════════════════════════════════════════════════════════════════════════
 function buildUI(r, perfil) {
     const {bono, hist6, etiq6, detallesMes} = r;
@@ -340,15 +340,15 @@ function buildUI(r, perfil) {
     
     const maxH = Math.max(...hist6.map(h=>h.ini+h.ren), 1);
     const graficaHTML = hist6.map((h, i) => {
-        const tot = h.ini + h.ren, pI = (h.ini/maxH)*90, pR = (h.ren/maxH)*90;
+        const tot = h.ini + h.ren, pI = (h.ini/maxH)*100, pR = (h.ren/maxH)*100;
         return `
-        <div class="flex-1 flex flex-col items-center gap-1">
-            <span class="text-[10px] text-white/50 h-4">${tot>0 ? Math.round(tot/1000)+'k' : ''}</span>
-            <div class="w-full flex flex-col justify-end h-24 gap-px rounded-lg overflow-hidden bg-black/20">
-                ${pR>0 ? `<div style="height:${pR}%" class="w-full bg-success"></div>` : ''}
-                ${pI>0 ? `<div style="height:${pI}%" class="w-full bg-primary ${i===5?'opacity-100':'opacity-50'}"></div>` : ''}
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:10px;color:var(--text-secondary);height:14px;">${tot>0 ? Math.round(tot/1000)+'k' : ''}</span>
+            <div style="width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:100px;background:rgba(150,150,150,0.1);border-radius:6px;overflow:hidden;">
+                ${pR>0 ? `<div style="height:${pR}%;width:100%;background:var(--success);"></div>` : ''}
+                ${pI>0 ? `<div style="height:${pI}%;width:100%;background:var(--primary);opacity:${i===5?'1':'0.5'};"></div>` : ''}
             </div>
-            <span class="text-[10px] ${i===5?'text-primary font-bold':'text-white/50'}">${etiq6[i]}</span>
+            <span style="font-size:10px;font-weight:${i===5?'700':'400'};color:${i===5?'var(--primary)':'var(--text-secondary)'};">${etiq6[i]}</span>
         </div>`;
     }).join('');
 
@@ -357,78 +357,81 @@ function buildUI(r, perfil) {
         const pctC = Math.min((r.comInicialSem/bono.meta.comAcum)*100, 100);
         const pctP = Math.min((r.puntosSem/bono.meta.ptosAcum)*100, 100);
         bonoHTML = `
-        <div class="glass-card p-5 border-l-4 border-l-warning">
-            <h2 class="text-title mb-4">🏆 Training Allowance</h2>
-            <div class="mb-4">
-                <div class="flex justify-between text-xs mb-1"><span class="text-white/60">Comisiones</span><span>${fmt(r.comInicialSem)} / ${fmt(bono.meta.comAcum)}</span></div>
-                <div class="h-2 bg-black/30 rounded-full"><div class="h-full bg-primary rounded-full" style="width:${pctC}%"></div></div>
+        <div class="card" style="border-left:4px solid var(--warning);">
+            <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;">🏆 Training Allowance</h2>
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--text-secondary);">Comisiones</span><span>${fmt(r.comInicialSem)} / ${fmt(bono.meta.comAcum)}</span></div>
+                <div style="height:8px;background:rgba(150,150,150,0.2);border-radius:4px;"><div style="height:100%;background:var(--primary);border-radius:4px;width:${pctC}%;"></div></div>
             </div>
-            <div class="mb-5">
-                <div class="flex justify-between text-xs mb-1"><span class="text-white/60">Puntos</span><span>${fmtN(r.puntosSem)} / ${bono.meta.ptosAcum}</span></div>
-                <div class="h-2 bg-black/30 rounded-full"><div class="h-full bg-success rounded-full" style="width:${pctP}%"></div></div>
+            <div style="margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--text-secondary);">Puntos</span><span>${fmtN(r.puntosSem)} / ${bono.meta.ptosAcum}</span></div>
+                <div style="height:8px;background:rgba(150,150,150,0.2);border-radius:4px;"><div style="height:100%;background:var(--success);border-radius:4px;width:${pctP}%;"></div></div>
             </div>
-            <div class="bg-black/20 rounded-xl p-4 text-center">
-                <p class="text-subtitle">Bono proyectado</p>
-                <div class="text-3xl font-bold ${bono.cumple ? 'text-success' : 'text-white/40'}">${fmt(bono.total)}</div>
+            <div style="background:rgba(150,150,150,0.05);border-radius:12px;padding:16px;text-align:center;">
+                <p style="font-size:11px;text-transform:uppercase;color:var(--text-secondary);font-weight:700;margin-bottom:4px;">Bono proyectado</p>
+                <div style="font-size:28px;font-weight:800;color:${bono.cumple ? 'var(--success)' : 'var(--text-tertiary)'};">${fmt(bono.total)}</div>
             </div>
         </div>`;
     } else {
         bonoHTML = `
-        <div class="glass-card p-5 border-l-4 border-l-warning">
-            <div class="flex justify-between mb-4"><h2 class="text-title">🏆 Nuevo Profesional</h2><button id="btn-update-indices" class="glass-btn-secondary py-1 px-2">Editar Índices</button></div>
-            <div class="bg-black/20 rounded-xl p-3 mb-2 flex justify-between items-center">
-                <div><span class="text-xs text-white/60">Bono Vida</span><br><strong class="text-lg text-primary">${fmt(bono.montoBI)}</strong></div>
-                <span class="glass-badge bg-primary/20 text-primary border-primary/20">LIMRA ${bono.limra}%</span>
+        <div class="card" style="border-left:4px solid var(--warning);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h2 style="font-size:16px;font-weight:700;margin:0;">🏆 Nuevo Profesional</h2>
+                <button id="btn-update-indices" class="btn-secondary btn-sm">Editar Índices</button>
             </div>
-            <div class="bg-black/20 rounded-xl p-3 flex justify-between items-center">
-                <div><span class="text-xs text-white/60">Bono GMM</span><br><strong class="text-lg text-success">${fmt(bono.montoGMM)}</strong></div>
-                <span class="glass-badge bg-success/20 text-success border-success/20">Grupo ${bono.grupoGMM?bono.grupoGMM.g:'-'}</span>
+            <div style="background:rgba(150,150,150,0.05);border-radius:12px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <div><span style="font-size:11px;color:var(--text-secondary);">Bono Vida</span><br><strong style="font-size:18px;color:var(--primary);">${fmt(bono.montoBI)}</strong></div>
+                <span class="status-badge" style="background:rgba(0,122,255,0.1);color:var(--primary);">LIMRA ${bono.limra}%</span>
+            </div>
+            <div style="background:rgba(150,150,150,0.05);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;">
+                <div><span style="font-size:11px;color:var(--text-secondary);">Bono GMM</span><br><strong style="font-size:18px;color:var(--success);">${fmt(bono.montoGMM)}</strong></div>
+                <span class="status-badge" style="background:rgba(52,199,89,0.1);color:var(--success);">Grupo ${bono.grupoGMM?bono.grupoGMM.g:'-'}</span>
             </div>
         </div>`;
     }
 
     return `
-    <div class="w-full max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        <div class="glass-panel">
-            <p class="text-subtitle text-white/70">💰 Estimación del Mes</p>
-            <div class="text-5xl font-extrabold my-2">${fmt(totalMes+bono.total)}</div>
-            <div class="flex gap-4 pt-2 border-t border-white/10 mt-2">
-                <span class="text-xs"><span class="text-white/50">Iniciales:</span> ${fmt(r.comInicialMes)}</span>
-                <span class="text-xs"><span class="text-white/50">Renov:</span> ${fmt(r.comRenovMes)}</span>
+    <div style="width:100%;max-width:1200px;margin:0 auto;padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:16px;">
+        <div class="glass-widget" style="padding:24px;border-left:4px solid var(--accent);">
+            <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-secondary);letter-spacing:1px;margin-bottom:4px;">💰 Estimación del Mes</p>
+            <div style="font-size:42px;font-weight:800;letter-spacing:-1px;margin-bottom:12px;">${fmt(totalMes+bono.total)}</div>
+            <div style="display:flex;gap:16px;padding-top:12px;border-top:1px solid var(--separator);">
+                <span style="font-size:13px;"><span style="color:var(--text-secondary);">Iniciales:</span> <strong>${fmt(r.comInicialMes)}</strong></span>
+                <span style="font-size:13px;"><span style="color:var(--text-secondary);">Renov:</span> <strong>${fmt(r.comRenovMes)}</strong></span>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="glass-widget border-l-4 border-l-primary"><span class="text-subtitle">Pólizas Mes</span><strong class="text-2xl">${detallesMes.length}</strong></div>
-            <div class="glass-widget border-l-4 border-l-success"><span class="text-subtitle">Puntos</span><strong class="text-2xl">${fmtN(r.puntosMes)}</strong></div>
-            <div class="glass-widget border-l-4 border-l-warning"><span class="text-subtitle">Mes Anterior</span><strong class="text-xl">${fmt(r.comMesPasado)}</strong></div>
-            <div class="glass-widget border-l-4 border-l-white/20"><span class="text-subtitle">YTD</span><strong class="text-xl">${fmt(r.comYTD)}</strong></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="glass-widget" style="padding:16px;border-left:3px solid var(--primary);"><span style="font-size:11px;text-transform:uppercase;color:var(--text-secondary);font-weight:700;">Pólizas Mes</span><br><strong style="font-size:22px;">${detallesMes.length}</strong></div>
+            <div class="glass-widget" style="padding:16px;border-left:3px solid var(--success);"><span style="font-size:11px;text-transform:uppercase;color:var(--text-secondary);font-weight:700;">Puntos</span><br><strong style="font-size:22px;">${fmtN(r.puntosMes)}</strong></div>
+            <div class="glass-widget" style="padding:16px;border-left:3px solid var(--warning);"><span style="font-size:11px;text-transform:uppercase;color:var(--text-secondary);font-weight:700;">Mes Anterior</span><br><strong style="font-size:18px;">${fmt(r.comMesPasado)}</strong></div>
+            <div class="glass-widget" style="padding:16px;border-left:3px solid var(--separator);"><span style="font-size:11px;text-transform:uppercase;color:var(--text-secondary);font-weight:700;">YTD</span><br><strong style="font-size:18px;">${fmt(r.comYTD)}</strong></div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="space-y-6">
-                <div class="glass-card p-5">
-                    <h2 class="text-title mb-4">📊 Histórico (6 Meses)</h2>
-                    <div class="flex items-end gap-2">${graficaHTML}</div>
+        <div style="display:grid;grid-template-columns:1fr;gap:16px;@media(min-width:768px){grid-template-columns:1fr 1fr;}">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div class="card">
+                    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;">📊 Histórico (6 Meses)</h2>
+                    <div style="display:flex;align-items:flex-end;gap:8px;">${graficaHTML}</div>
                 </div>
                 
-                <div class="glass-card p-5 border-l-4 border-l-accent">
-                    <h2 class="text-title mb-4">🔮 Simulador Rápido</h2>
-                    <div class="grid grid-cols-2 gap-3 mb-3">
-                        <select id="sim-plan" class="glass-input col-span-2 bg-black/40"><option value="Segubeca">Segubeca</option><option value="Orvi 99">Orvi 99</option><option value="Alfa Medical">Alfa Medical</option></select>
-                        <input type="number" id="sim-prima" placeholder="Prima" class="glass-input bg-black/40">
-                        <select id="sim-fpago" class="glass-input bg-black/40"><option value="1">Anual</option><option value="0.0833">Mensual</option></select>
+                <div class="card" style="border-left:4px solid var(--accent);">
+                    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;">🔮 Simulador Rápido</h2>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                        <select id="sim-plan" class="glass-input" style="grid-column:span 2;"><option value="Segubeca">Segubeca</option><option value="Orvi 99">Orvi 99</option><option value="Alfa Medical">Alfa Medical</option></select>
+                        <input type="number" id="sim-prima" placeholder="Prima" class="glass-input">
+                        <select id="sim-fpago" class="glass-input"><option value="1">Anual</option><option value="0.0833">Mensual</option></select>
                     </div>
-                    <button id="btn-simular" class="glass-btn w-full py-2">Calcular</button>
-                    <div id="sim-resultado" class="mt-3 text-sm text-success font-bold text-center hidden"></div>
+                    <button id="btn-simular" class="btn-primary" style="width:100%;">Calcular</button>
+                    <div id="sim-resultado" style="margin-top:12px;font-size:13px;color:var(--success);font-weight:700;text-align:center;display:none;"></div>
                 </div>
             </div>
             
             <div>${bonoHTML}</div>
         </div>
         
-        <div class="mt-8 border border-dashed border-danger/40 rounded-xl p-4 bg-danger/5">
-            <button id="btn-dev-reset" class="w-full text-danger text-sm font-bold py-2">🔄 Formatear Perfil Financiero</button>
+        <div style="margin-top:32px;border:1px dashed var(--danger);border-radius:12px;padding:16px;background:rgba(255,59,48,0.05);">
+            <button id="btn-dev-reset" style="width:100%;background:transparent;border:none;color:var(--danger);font-weight:700;font-size:13px;cursor:pointer;">🔄 Formatear Perfil Financiero</button>
         </div>
     </div>`;
 }
@@ -451,7 +454,7 @@ function bindUIEvents(r, perfil, sb, userId) {
         
         const res = document.getElementById('sim-resultado');
         res.innerHTML = `Comisión estimada del recibo: ${fmt(com)}`;
-        res.classList.remove('hidden');
+        res.style.display = 'block';
     });
 
     document.getElementById('btn-dev-reset')?.addEventListener('click', async () => {
