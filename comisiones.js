@@ -260,8 +260,14 @@ export async function bindComisionesEvents() {
         if(!user) throw new Error('Sin sesión');
 
         let perfil = null;
+        // Leer perfil local primero (tiene limra e igc)
         try { const loc=await DB.obtenerTodos('perfil_asesor'); if(loc.length) perfil=loc[0]; } catch(_){}
-        if(!perfil){ const {data}=await sb.from('perfil_asesor').select('*').eq('user_id',user.id); if(data?.length) perfil=data[0]; }
+        // Si no hay local, leer de Supabase
+        if(!perfil){ try{ const {data}=await sb.from('perfil_asesor').select('*').eq('user_id',user.id); if(data?.length) perfil=data[0]; }catch(_){} }
+        // Si hay local Y Supabase, mergear para tener fecha_conexion y esquema de Supabase + limra/igc de local
+        if(perfil && (!perfil.fecha_conexion && !perfil.fechaConexion)) {
+            try{ const {data}=await sb.from('perfil_asesor').select('*').eq('user_id',user.id); if(data?.length) perfil={...data[0],...perfil}; }catch(_){}
+        }
 
         if(!perfil||(!perfil.fecha_conexion&&!perfil.fechaConexion)){
             root.innerHTML = renderConfigForm(false);
@@ -433,17 +439,20 @@ function bindConfigFormIndices(sb, userId, perfil) {
         const igc   = parseFloat(document.getElementById('idx-igc').value)||91.0;
 
         try {
-            // limra e igc no son columnas de Supabase — actualizar solo en DB local
-            const loc2 = await DB.obtenerTodos('perfil_asesor');
-            if(loc2.length > 0) await DB.actualizar('perfil_asesor', loc2[0].id, { ...loc2[0], limra, igc });
-            try {
-                const loc = await DB.obtenerTodos('perfil_asesor');
-                if(loc.length>0) await DB.actualizar('perfil_asesor', loc[0].id, { ...perfil, limra, igc });
-            } catch(_){}
+            // Guardar en DB local (crm_data) — fuente de verdad para limra e igc
+            const loc = await DB.obtenerTodos('perfil_asesor');
+            const datos = { ...(perfil||{}), limra, igc };
+            if(loc.length > 0) {
+                await DB.actualizar('perfil_asesor', loc[0].id, { ...loc[0], limra, igc });
+            } else {
+                // No hay perfil local — crearlo desde el perfil de Supabase
+                datos.id = 'perfil_' + Date.now();
+                await DB.guardar('perfil_asesor', datos);
+            }
             showToast('✅ Índices actualizados','success');
-            setTimeout(() => window.navigateTo('comisiones'), 400);
+            setTimeout(() => window.navigateTo('comisiones'), 500);
         } catch(e){
-            showToast('Error: '+e.message,'danger');
+            showToast('Error al guardar: '+e.message,'danger');
         }
     });
 }
