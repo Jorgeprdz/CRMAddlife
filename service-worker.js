@@ -1,82 +1,248 @@
-// /service-worker.js - Arquitectura Offline-First (Stale-While-Revalidate)
+// service-worker.js — CRM AddLife v5
+// Cache inteligente + auto refresh + invalidación segura
+// Optimizado para Android, Samsung Internet y PWAs
 
-const CACHE_NAME = 'crm-addlife-core-v4';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'crm-addlife-core-v5';
+
+const CORE_ASSETS = [
     '/',
     '/index.html',
     '/styles.css',
+    '/manifest.json',
+
+    // Core
     '/app.js',
     '/db.js',
     '/utils.js',
-    '/dashboard.js',
-    '/prospeccion.js',
-    '/referidos.js',
-    '/actividad.js',
+    '/sync.js',
+
+    // Módulos
     '/cartera.js',
+    '/clientes.js',
     '/comisiones.js',
-    '/manifest.json'
+    '/agenda.js',
+    '/pipeline.js',
+
+    // Assets
+    '/icons/icon-192.png',
+    '/icons/icon-512.png'
 ];
 
-// 1. INSTALACIÓN: Precarga de activos críticos
+// ═══════════════════════════════════════════════════════════════
+// INSTALL
+// ═══════════════════════════════════════════════════════════════
+
 self.addEventListener('install', (event) => {
-    self.skipWaiting(); // Obliga al SW a activarse inmediatamente
+
+    console.log('[SW] Installing...');
+
+    self.skipWaiting();
+
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            console.log('[Service Worker] Pre-cacheando arquitectura core');
-            return cache.addAll(STATIC_ASSETS);
-        })
+        caches.open(CACHE_NAME)
+            .then(cache => {
+
+                console.log('[SW] Caching core assets');
+
+                return cache.addAll(CORE_ASSETS);
+
+            })
+            .catch(err => {
+                console.error('[SW] Install error:', err);
+            })
     );
 });
 
-// 2. ACTIVACIÓN: Limpieza de cachés obsoletos para evitar bloqueos de versión
+// ═══════════════════════════════════════════════════════════════
+// ACTIVATE
+// ═══════════════════════════════════════════════════════════════
+
 self.addEventListener('activate', (event) => {
+
+    console.log('[SW] Activating...');
+
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log('[Service Worker] Purgando caché antiguo:', cacheName);
-                        return caches.delete(cacheName);
+
+        caches.keys().then(async keys => {
+
+            await Promise.all(
+
+                keys.map(key => {
+
+                    if (key !== CACHE_NAME) {
+
+                        console.log('[SW] Removing old cache:', key);
+
+                        return caches.delete(key);
                     }
                 })
             );
-        }).then(() => self.clients.claim())
+
+            // Fuerza refresh de TODOS los clientes
+            const clients = await self.clients.matchAll();
+
+            clients.forEach(client => {
+                client.navigate(client.url);
+            });
+
+            return self.clients.claim();
+
+        })
     );
 });
 
-// 3. INTERCEPTOR DE RED: Estrategia Stale-While-Revalidate
+// ═══════════════════════════════════════════════════════════════
+// FETCH STRATEGY
+// ═══════════════════════════════════════════════════════════════
+
 self.addEventListener('fetch', (event) => {
-    const { request } = event;
-    const url = new URL(request.url);
 
-    // EXCEPCIÓN CRÍTICA: Nunca interceptar llamadas a Supabase o Gemini APIs
-    if (url.origin.includes('supabase.co') || url.pathname.includes('/api/')) {
-        return; // Deja que el navegador o db.js lo manejen
-    }
+    const req = event.request;
 
-    // EXCEPCIÓN: Extensiones de Chrome
-    if (url.protocol === 'chrome-extension:') {
+    // Solo GET
+    if (req.method !== 'GET') return;
+
+    // Ignorar Supabase/Auth/API
+    if (
+        req.url.includes('/auth/') ||
+        req.url.includes('/rest/v1/') ||
+        req.url.includes('supabase') ||
+        req.url.includes('googleapis')
+    ) {
         return;
     }
 
+    // JS MODULES → Network First
+    if (
+        req.url.endsWith('.js') ||
+        req.url.endsWith('.mjs')
+    ) {
+
+        event.respondWith(
+
+            fetch(req)
+                .then(res => {
+
+                    const clone = res.clone();
+
+                    caches.open(CACHE_NAME)
+                        .then(cache => {
+                            cache.put(req, clone);
+                        });
+
+                    return res;
+
+                })
+                .catch(() => caches.match(req))
+        );
+
+        return;
+    }
+
+    // HTML → Network First
+    if (
+        req.headers.get('accept')?.includes('text/html')
+    ) {
+
+        event.respondWith(
+
+            fetch(req)
+                .then(res => {
+
+                    const clone = res.clone();
+
+                    caches.open(CACHE_NAME)
+                        .then(cache => {
+                            cache.put(req, clone);
+                        });
+
+                    return res;
+
+                })
+                .catch(async () => {
+
+                    return (
+                        await caches.match(req)
+                    ) || caches.match('/index.html');
+
+                })
+        );
+
+        return;
+    }
+
+    // STATIC → Cache First
     event.respondWith(
-        caches.match(request).then((cachedResponse) => {
-            const fetchPromise = fetch(request).then((networkResponse) => {
-                // Si la red responde bien, actualizamos el caché silenciosamente
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(request, responseToCache);
+
+        caches.match(req)
+            .then(cached => {
+
+                if (cached) return cached;
+
+                return fetch(req)
+                    .then(res => {
+
+                        const clone = res.clone();
+
+                        caches.open(CACHE_NAME)
+                            .then(cache => {
+                                cache.put(req, clone);
+                            });
+
+                        return res;
+
                     });
-                }
-                return networkResponse;
-            }).catch(() => {
-                // Falla de red silenciosa, ya entregamos el caché local
-                console.warn('[Service Worker] Red inaccesible, sirviendo desde caché.');
+
+            })
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MESSAGE CHANNEL
+// ═══════════════════════════════════════════════════════════════
+
+self.addEventListener('message', (event) => {
+
+    if (!event.data) return;
+
+    switch (event.data.type) {
+
+        case 'SKIP_WAITING':
+
+            console.log('[SW] Skip waiting');
+
+            self.skipWaiting();
+
+            break;
+
+        case 'CLEAR_CACHE':
+
+            console.log('[SW] Clearing cache');
+
+            caches.keys().then(keys => {
+
+                keys.forEach(key => {
+                    caches.delete(key);
+                });
+
             });
 
-            // Retorna instantáneamente la versión cacheada si existe, si no, espera a la red
-            return cachedResponse || fetchPromise;
-        })
-    );
+            break;
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ERROR HANDLING
+// ═══════════════════════════════════════════════════════════════
+
+self.addEventListener('error', (event) => {
+
+    console.error('[SW ERROR]', event);
+
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+
+    console.error('[SW PROMISE ERROR]', event.reason);
+
 });

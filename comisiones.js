@@ -10,7 +10,9 @@
 // ✅ Eliminado legacy perfil_asesor
 // ✅ No rompe UI existente
 // ✅ Compatible Android / Samsung / PWA / Termux
-
+console.log(
+    'COMISIONES V13 REAL'
+);
 import { DB } from './db.js';
 import { getSupabase } from './app.js';
 import { showToast } from './utils.js';
