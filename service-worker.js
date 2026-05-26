@@ -1,6 +1,6 @@
 // /service-worker.js - Arquitectura Offline-First (Stale-While-Revalidate)
 
-const CACHE_NAME = 'crm-addlife-core-v3';
+const CACHE_NAME = 'crm-addlife-core-v4';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
